@@ -159,6 +159,7 @@
   .cat-bills { background: #e06b52; }
   .cat-health { background: #e0a352; }
   .cat-education { background: #4ecdc4; }
+  .cat-savings { background: #f0b27a; }
   .cat-other { background: #8a8578; }
   .cat-salary { background: #5cb870; }
   .cat-freelance { background: #3da87a; }
@@ -423,7 +424,6 @@
   .filter-tab.active { background: var(--bg-card); color: var(--fg); }
   .filter-tab:hover:not(.active) { color: var(--fg); }
 
-  /* Sync Indicator */
   .sync-indicator {
     display: flex;
     align-items: center;
@@ -445,7 +445,22 @@
   .amount-income { color: var(--income); }
   .amount-expense { color: var(--fg); }
 
-  /* Loading overlay */
+  .savings-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #f0b27a;
+    background: rgba(240,178,122,0.12);
+    padding: 2px 7px;
+    border-radius: 4px;
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+
   #loadingOverlay {
     position: fixed;
     inset: 0;
@@ -504,7 +519,6 @@
 
 <div class="bg-atmosphere" aria-hidden="true"></div>
 
-<!-- Loading Overlay -->
 <div id="loadingOverlay">
   <div class="loader"></div>
   <div style="font-family:'Space Grotesk',sans-serif;color:var(--fg-muted);font-size:14px;">Syncing your ledger...</div>
@@ -595,6 +609,9 @@
             </div>
             <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--fg-muted);">
               <span style="width:8px;height:8px;border-radius:50%;background:var(--income);display:inline-block;"></span>Income
+            </div>
+            <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--fg-muted);">
+              <span style="width:8px;height:8px;border-radius:50%;background:#f0b27a;display:inline-block;"></span>Savings
             </div>
           </div>
 
@@ -718,10 +735,10 @@
 
 <script>
   // ═══════════════════════════════════════════
-  // 🔑 CLOUD CONFIGURATION
+  // CLOUD CONFIGURATION
   // ═══════════════════════════════════════════
   const BIN_ID = '69ce54a5856a682189f1eb77';
-  const API_KEY = '$2a$10$g76znpXn9nA3ft1eFt2Tmu2u0g7Z0nzl0cmhoWqX25/yKBAzvIL/C'; // <-- REPLACE THIS WITH YOUR NEW KEY!
+  const API_KEY = 'PASTE_YOUR_NEW_API_KEY_HERE'; // <-- REPLACE THIS WITH YOUR NEW KEY!
   const API_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}/latest`;
 
   // ═══════════════════════════════════════════
@@ -744,6 +761,7 @@
     bills: { label: 'Bills & Utilities', icon: 'fa-bolt', class: 'cat-bills' },
     health: { label: 'Health', icon: 'fa-heart-pulse', class: 'cat-health' },
     education: { label: 'Education', icon: 'fa-graduation-cap', class: 'cat-education' },
+    savings: { label: 'Savings', icon: 'fa-piggy-bank', class: 'cat-savings' },
     other: { label: 'Other', icon: 'fa-ellipsis', class: 'cat-other' }
   };
 
@@ -785,10 +803,8 @@
       });
       if (!res.ok) throw new Error('Failed to fetch');
       const json = await res.json();
-      // JSONBin wraps data in a "record" object
       const data = json.record;
       if (Array.isArray(data)) {
-        // Filter out the dummy entry we created initially
         expenses = data.filter(e => e.description !== 'Starting balance');
       } else {
         expenses = [];
@@ -797,7 +813,6 @@
     } catch (err) {
       console.error('Fetch error:', err);
       updateSyncUI('error');
-      // Fallback to localStorage if cloud fails
       expenses = JSON.parse(localStorage.getItem('ledger_expenses') || '[]');
     }
   }
@@ -817,7 +832,6 @@
       });
       if (!res.ok) throw new Error('Failed to save');
       updateSyncUI('synced');
-      // Also save locally as backup
       localStorage.setItem('ledger_expenses', JSON.stringify(expenses));
     } catch (err) {
       console.error('Push error:', err);
@@ -900,10 +914,12 @@
     let dotsHtml = '', totalHtml = '';
     if (dayEntries && dayEntries.length > 0) {
       const total = dayEntries.reduce((s, e) => s + (e.type === 'income' ? e.amount : -e.amount), 0);
-      const hasExp = dayEntries.some(e => e.type === 'expense');
+      const hasExp = dayEntries.some(e => e.type === 'expense' && e.category !== 'savings');
+      const hasSav = dayEntries.some(e => e.type === 'expense' && e.category === 'savings');
       const hasInc = dayEntries.some(e => e.type === 'income');
       let dots = '';
       if (hasExp) dots += `<span class="dot" style="background:var(--danger);opacity:0.7;"></span>`;
+      if (hasSav) dots += `<span class="dot" style="background:#f0b27a;opacity:0.8;"></span>`;
       if (hasInc) dots += `<span class="dot" style="background:var(--income);opacity:0.7;"></span>`;
       if (dots) dotsHtml = `<div class="expense-dots">${dots}</div>`;
       
@@ -964,20 +980,26 @@
     const allDay = expenses.filter(e => e.date === dateStr);
     const totalExpense = allDay.filter(e => e.type === 'expense').reduce((s, e) => s + e.amount, 0);
     const totalIncome = allDay.filter(e => e.type === 'income').reduce((s, e) => s + e.amount, 0);
+    const totalSavings = allDay.filter(e => e.type === 'expense' && e.category === 'savings').reduce((s, e) => s + e.amount, 0);
     const net = totalIncome - totalExpense;
 
     let html = `<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
-      <div style="flex:1;min-width:80px;background:var(--danger-dim);border-radius:8px;padding:8px 12px;text-align:center;">
+      <div style="flex:1;min-width:70px;background:var(--danger-dim);border-radius:8px;padding:8px 12px;text-align:center;">
         <div style="font-size:10px;color:var(--danger);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Out</div>
         <div style="font-size:14px;font-weight:700;color:var(--danger);font-family:'Space Grotesk',sans-serif;">-$${totalExpense.toFixed(2)}</div>
       </div>
-      <div style="flex:1;min-width:80px;background:var(--income-dim);border-radius:8px;padding:8px 12px;text-align:center;">
+      <div style="flex:1;min-width:70px;background:var(--income-dim);border-radius:8px;padding:8px 12px;text-align:center;">
         <div style="font-size:10px;color:var(--income);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">In</div>
         <div style="font-size:14px;font-weight:700;color:var(--income);font-family:'Space Grotesk',sans-serif;">+$${totalIncome.toFixed(2)}</div>
       </div>
-      <div style="flex:1;min-width:80px;background:var(--accent-dim);border-radius:8px;padding:8px 12px;text-align:center;">
-        <div style="font-size:10px;color:var(--accent);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Net</div>
-        <div style="font-size:14px;font-weight:700;font-family:'Space Grotesk',sans-serif;" class="${net >= 0 ? 'net-positive' : 'net-negative'}">${net >= 0 ? '+' : '-'}$${Math.abs(net).toFixed(2)}</div>
+      <div style="flex:1;min-width:70px;background:rgba(240,178,122,0.12);border-radius:8px;padding:8px 12px;text-align:center;">
+        <div style="font-size:10px;color:#f0b27a;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Saved</div>
+        <div style="font-size:14px;font-weight:700;color:#f0b27a;font-family:'Space Grotesk',sans-serif;">$${totalSavings.toFixed(2)}</div>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:center;margin-bottom:14px;">
+      <div style="background:${net >= 0 ? 'var(--income-dim)' : 'var(--danger-dim)'};border-radius:8px;padding:6px 16px;text-align:center;">
+        <span style="font-size:13px;font-weight:700;font-family:'Space Grotesk',sans-serif;" class="${net >= 0 ? 'net-positive' : 'net-negative'}">Net: ${net >= 0 ? '+' : '-'}$${Math.abs(net).toFixed(2)}</span>
       </div>
     </div>`;
 
@@ -986,14 +1008,17 @@
       const cats = getCategories(entry.type);
       const cat = cats[entry.category] || cats.other;
       const isIncome = entry.type === 'income';
-      html += `<div class="expense-item">
+      const isSavings = entry.type === 'expense' && entry.category === 'savings';
+      html += `<div class="expense-item" style="${isSavings ? 'border-color:rgba(240,178,122,0.25);background:linear-gradient(135deg,rgba(240,178,122,0.06),var(--bg-card));' : ''}">
         <div class="cat-icon ${cat.class}" style="color:#0f0f0f;"><i class="fa-solid ${cat.icon}"></i></div>
         <div style="flex:1;min-width:0;">
-          <div style="font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(entry.description)}</div>
+          <div style="font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+            ${escapeHtml(entry.description)}${isSavings ? '<span class="savings-badge"><i class="fa-solid fa-piggy-bank" style="font-size:8px;"></i>Saved</span>' : ''}
+          </div>
           <div style="font-size:11px;color:var(--fg-muted);">${cat.label}${entry.note ? ' — ' + escapeHtml(entry.note) : ''}</div>
         </div>
         <div style="text-align:right;flex-shrink:0;display:flex;align-items:center;gap:6px;">
-          <span style="font-size:14px;font-weight:700;font-family:'Space Grotesk',sans-serif;" class="${isIncome ? 'amount-income' : 'amount-expense'}">${isIncome ? '+' : '-'}$${entry.amount.toFixed(2)}</span>
+          <span style="font-size:14px;font-weight:700;font-family:'Space Grotesk',sans-serif;${isSavings ? 'color:#f0b27a;' : ''}" class="${isIncome ? 'amount-income' : isSavings ? '' : 'amount-expense'}">${isIncome ? '+' : '-'}$${entry.amount.toFixed(2)}</span>
           <button class="btn-icon" onclick="openEditModal(${entry.id})" aria-label="Edit"><i class="fa-solid fa-pen" style="font-size:11px;"></i></button>
           <button class="btn-icon danger" onclick="openDeleteModal(${entry.id})" aria-label="Delete"><i class="fa-solid fa-trash-can" style="font-size:11px;"></i></button>
         </div>
@@ -1067,10 +1092,11 @@
     legendEl.innerHTML = sorted.map(([cat, amt]) => {
       const c = cats[cat] || cats.other;
       const pct = total > 0 ? (amt / total * 100).toFixed(1) : 0;
-      return `<div style="display:flex;align-items:center;gap:10px;">
+      const isSavings = cat === 'savings';
+      return `<div style="display:flex;align-items:center;gap:10px;${isSavings ? 'padding:6px 8px;background:rgba(240,178,122,0.06);border-radius:8px;border:1px solid rgba(240,178,122,0.15);' : ''}">
         <div style="width:10px;height:10px;border-radius:3px;flex-shrink:0;" class="${c.class}"></div>
-        <span style="flex:1;font-size:13px;color:var(--fg-muted);">${c.label}</span>
-        <span style="font-size:13px;font-weight:600;font-family:'Space Grotesk',sans-serif;">$${amt.toFixed(2)}</span>
+        <span style="flex:1;font-size:13px;color:${isSavings ? '#f0b27a' : 'var(--fg-muted)'};font-weight:${isSavings ? '600' : '400'};">${c.label}${isSavings ? ' <i class="fa-solid fa-piggy-bank" style="font-size:10px;"></i>' : ''}</span>
+        <span style="font-size:13px;font-weight:600;font-family:'Space Grotesk',sans-serif;${isSavings ? 'color:#f0b27a;' : ''}">$${amt.toFixed(2)}</span>
         <span style="font-size:11px;color:var(--fg-muted);width:42px;text-align:right;">${pct}%</span>
       </div>`;
     }).join('');
@@ -1218,7 +1244,6 @@
       return;
     }
 
-    // Disable button while saving
     const btn = document.getElementById('modalSubmitBtn');
     btn.disabled = true;
     btn.textContent = 'Saving...';
@@ -1231,7 +1256,8 @@
       }
     } else {
       expenses.push({ id: generateId(), description: desc, amount, category, date, note, type: currentType });
-      showToast(currentType === 'income' ? 'Income added successfully' : 'Expense added successfully', 'success');
+      const isSavings = currentType === 'expense' && category === 'savings';
+      showToast(isSavings ? 'Savings added successfully' : currentType === 'income' ? 'Income added successfully' : 'Expense added successfully', 'success');
     }
 
     await pushExpenses();
@@ -1293,11 +1319,12 @@
     let csv = `Ledger — ${monthNames[currentMonth]} ${currentYear}\n\nDate,Type,Description,Category,Amount,Note\n`;
     monthExps.sort((a, b) => a.date.localeCompare(b.date)).forEach(e => {
       const cats = getCategories(e.type);
-      csv += `${e.date},${e.type === 'income' ? 'Income' : 'Expense'},"${e.description}",${cats[e.category]?.label || 'Other'},${e.amount.toFixed(2)},"${e.note || ''}"\n`;
+      csv += `${e.date},${e.type === 'income' ? 'Income' : e.category === 'savings' ? 'Savings' : 'Expense'},"${e.description}",${cats[e.category]?.label || 'Other'},${e.amount.toFixed(2)},"${e.note || ''}"\n`;
     });
     const totalExpense = monthExps.filter(e => e.type === 'expense').reduce((s, e) => s + e.amount, 0);
     const totalIncome = monthExps.filter(e => e.type === 'income').reduce((s, e) => s + e.amount, 0);
-    csv += `\nTotal Expenses,,,"${totalExpense.toFixed(2)}"\nTotal Income,,,"${totalIncome.toFixed(2)}"\nNet Savings,,,"${(totalIncome - totalExpense).toFixed(2)}"\n`;
+    const totalSavings = monthExps.filter(e => e.type === 'expense' && e.category === 'savings').reduce((s, e) => s + e.amount, 0);
+    csv += `\nTotal Expenses,,,"${totalExpense.toFixed(2)}"\n  Of which Savings,,,"${totalSavings.toFixed(2)}"\nTotal Income,,,"${totalIncome.toFixed(2)}"\nNet Savings,,,"${(totalIncome - totalExpense).toFixed(2)}"\n`;
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
