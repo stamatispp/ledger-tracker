@@ -25,6 +25,9 @@
     --income: #5cb870;
     --income-dim: rgba(92,184,112,0.15);
     --income-glow: rgba(92,184,112,0.25);
+    --savings: #f0b27a;
+    --savings-dim: rgba(240,178,122,0.12);
+    --savings-border: rgba(240,178,122,0.25);
     --border: #2e2e2e;
     --border-light: #3a3a3a;
   }
@@ -159,13 +162,13 @@
   .cat-bills { background: #e06b52; }
   .cat-health { background: #e0a352; }
   .cat-education { background: #4ecdc4; }
-  .cat-savings { background: #f0b27a; }
   .cat-other { background: #8a8578; }
   .cat-salary { background: #5cb870; }
   .cat-freelance { background: #3da87a; }
   .cat-investment { background: #45b89a; }
   .cat-gift { background: #e8d649; }
   .cat-refund { background: #7ac8a0; }
+  .cat-savings { background: #f0b27a; }
 
   .modal-overlay {
     position: fixed;
@@ -252,6 +255,11 @@
   .btn-primary.income-btn:hover {
     background: #6dca80;
     box-shadow: 0 4px 16px var(--income-glow);
+  }
+  .btn-primary.savings-btn { background: var(--savings); }
+  .btn-primary.savings-btn:hover {
+    background: #f5c28e;
+    box-shadow: 0 4px 16px rgba(240,178,122,0.3);
   }
   .btn-primary:disabled {
     opacity: 0.6;
@@ -383,12 +391,12 @@
   }
   .type-toggle-btn {
     flex: 1;
-    padding: 10px 16px;
+    padding: 10px 8px;
     border: none;
     border-radius: 8px;
     font-family: 'Space Grotesk', sans-serif;
     font-weight: 600;
-    font-size: 13px;
+    font-size: 12px;
     cursor: pointer;
     transition: all 0.2s ease;
     background: transparent;
@@ -396,7 +404,8 @@
   }
   .type-toggle-btn.active-expense { background: var(--danger-dim); color: var(--danger); }
   .type-toggle-btn.active-income { background: var(--income-dim); color: var(--income); }
-  .type-toggle-btn:hover:not(.active-expense):not(.active-income) {
+  .type-toggle-btn.active-savings { background: var(--savings-dim); color: var(--savings); }
+  .type-toggle-btn:hover:not(.active-expense):not(.active-income):not(.active-savings) {
     color: var(--fg);
     background: var(--bg-card);
   }
@@ -410,16 +419,17 @@
     border: 1px solid var(--border);
   }
   .filter-tab {
-    padding: 6px 12px;
+    padding: 6px 10px;
     border: none;
     border-radius: 6px;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 600;
     font-family: 'Space Grotesk', sans-serif;
     cursor: pointer;
     background: transparent;
     color: var(--fg-muted);
     transition: all 0.2s ease;
+    white-space: nowrap;
   }
   .filter-tab.active { background: var(--bg-card); color: var(--fg); }
   .filter-tab:hover:not(.active) { color: var(--fg); }
@@ -444,21 +454,14 @@
   .net-negative { color: var(--danger) !important; }
   .amount-income { color: var(--income); }
   .amount-expense { color: var(--fg); }
+  .amount-savings { color: var(--savings); }
 
-  .savings-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 10px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: #f0b27a;
-    background: rgba(240,178,122,0.12);
-    padding: 2px 7px;
-    border-radius: 4px;
-    margin-left: 6px;
-    vertical-align: middle;
+  .savings-box {
+    background: linear-gradient(135deg, var(--savings-dim), rgba(240,178,122,0.04));
+    border: 1px solid var(--savings-border);
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 14px;
   }
 
   #loadingOverlay {
@@ -505,6 +508,7 @@
     .stat-card { padding: 14px; }
     .stat-card .font-display { font-size: 22px !important; }
     .header-actions { flex-wrap: wrap; }
+    .type-toggle-btn { font-size: 11px; padding: 8px 4px; }
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -553,37 +557,46 @@
         <button class="btn-primary income-btn" onclick="openAddModal('income')" style="padding:8px 16px;font-size:13px;">
           <i class="fa-solid fa-plus" style="margin-right:4px;font-size:10px;"></i>Income
         </button>
+        <button class="btn-primary savings-btn" onclick="openAddModal('savings')" style="padding:8px 16px;font-size:13px;">
+          <i class="fa-solid fa-piggy-bank" style="margin-right:4px;font-size:10px;"></i>Save
+        </button>
       </div>
     </div>
   </header>
 
   <main style="flex:1;padding:24px;max-width:1400px;margin:0 auto;width:100%;">
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:28px;" class="fade-up fade-up-1">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:28px;" class="fade-up fade-up-1">
       <div class="stat-card">
         <div style="font-size:11px;color:var(--danger);text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
           <i class="fa-solid fa-arrow-trend-down" style="font-size:10px;"></i>Expenses
         </div>
-        <div id="statExpense" class="font-display" style="font-size:26px;font-weight:700;color:var(--danger);">$0.00</div>
+        <div id="statExpense" class="font-display" style="font-size:24px;font-weight:700;color:var(--danger);">$0.00</div>
       </div>
       <div class="stat-card">
         <div style="font-size:11px;color:var(--income);text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
           <i class="fa-solid fa-arrow-trend-up" style="font-size:10px;"></i>Income
         </div>
-        <div id="statIncome" class="font-display" style="font-size:26px;font-weight:700;color:var(--income);">$0.00</div>
+        <div id="statIncome" class="font-display" style="font-size:24px;font-weight:700;color:var(--income);">$0.00</div>
+      </div>
+      <div class="stat-card" style="border-color:var(--savings-border);background:linear-gradient(135deg, var(--savings-dim), transparent);">
+        <div style="font-size:11px;color:var(--savings);text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
+          <i class="fa-solid fa-piggy-bank" style="font-size:10px;"></i>Saved
+        </div>
+        <div id="statSaved" class="font-display" style="font-size:24px;font-weight:700;color:var(--savings);">$0.00</div>
       </div>
       <div class="stat-card" style="border-color:var(--accent);background:linear-gradient(135deg, var(--accent-dim), transparent);">
         <div style="font-size:11px;color:var(--accent);text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:8px;display:flex;align-items:center;gap:6px;">
-          <i class="fa-solid fa-scale-balanced" style="font-size:10px;"></i>Net Savings
+          <i class="fa-solid fa-scale-balanced" style="font-size:10px;"></i>Remaining
         </div>
-        <div id="statNet" class="font-display" style="font-size:26px;font-weight:700;color:var(--accent);">$0.00</div>
+        <div id="statNet" class="font-display" style="font-size:24px;font-weight:700;color:var(--accent);">$0.00</div>
       </div>
       <div class="stat-card">
         <div style="font-size:11px;color:var(--fg-muted);text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:8px;">Transactions</div>
-        <div id="statCount" class="font-display" style="font-size:26px;font-weight:700;">0</div>
+        <div id="statCount" class="font-display" style="font-size:24px;font-weight:700;">0</div>
       </div>
       <div class="stat-card">
-        <div style="font-size:11px;color:var(--fg-muted);text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:8px;">Daily Avg Spend</div>
-        <div id="statAvg" class="font-display" style="font-size:26px;font-weight:700;">$0.00</div>
+        <div style="font-size:11px;color:var(--fg-muted);text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:8px;">Daily Avg</div>
+        <div id="statAvg" class="font-display" style="font-size:24px;font-weight:700;">$0.00</div>
       </div>
     </div>
 
@@ -611,7 +624,7 @@
               <span style="width:8px;height:8px;border-radius:50%;background:var(--income);display:inline-block;"></span>Income
             </div>
             <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--fg-muted);">
-              <span style="width:8px;height:8px;border-radius:50%;background:#f0b27a;display:inline-block;"></span>Savings
+              <span style="width:8px;height:8px;border-radius:50%;background:var(--savings);display:inline-block;"></span>Savings
             </div>
           </div>
 
@@ -640,12 +653,16 @@
               <button class="btn-icon" onclick="openAddModalForSelected('income')" aria-label="Add income" style="color:var(--income);">
                 <i class="fa-solid fa-plus-circle" style="font-size:15px;"></i>
               </button>
+              <button class="btn-icon" onclick="openAddModalForSelected('savings')" aria-label="Add savings" style="color:var(--savings);">
+                <i class="fa-solid fa-piggy-bank" style="font-size:15px;"></i>
+              </button>
             </div>
           </div>
           <div id="filterTabs" class="filter-tabs" style="margin-bottom:14px;display:none;">
             <button class="filter-tab active" data-filter="all" onclick="setDayFilter('all')">All</button>
             <button class="filter-tab" data-filter="expense" onclick="setDayFilter('expense')">Expenses</button>
             <button class="filter-tab" data-filter="income" onclick="setDayFilter('income')">Income</button>
+            <button class="filter-tab" data-filter="savings" onclick="setDayFilter('savings')">Savings</button>
           </div>
           <div id="sidebarExpenses">
             <div style="text-align:center;padding:32px 0;color:var(--fg-muted);font-size:14px;">
@@ -682,10 +699,13 @@
       <input type="hidden" id="editId" value="">
       <div class="type-toggle" id="typeToggle">
         <button type="button" class="type-toggle-btn" data-type="expense" onclick="setType('expense')">
-          <i class="fa-solid fa-arrow-down" style="margin-right:6px;font-size:11px;"></i>Expense
+          <i class="fa-solid fa-arrow-down" style="margin-right:4px;font-size:10px;"></i>Expense
         </button>
         <button type="button" class="type-toggle-btn" data-type="income" onclick="setType('income')">
-          <i class="fa-solid fa-arrow-up" style="margin-right:6px;font-size:11px;"></i>Income
+          <i class="fa-solid fa-arrow-up" style="margin-right:4px;font-size:10px;"></i>Income
+        </button>
+        <button type="button" class="type-toggle-btn" data-type="savings" onclick="setType('savings')">
+          <i class="fa-solid fa-piggy-bank" style="margin-right:4px;font-size:10px;"></i>Save
         </button>
       </div>
       <div>
@@ -697,7 +717,7 @@
           <label style="font-size:12px;color:var(--fg-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:6px;">Amount</label>
           <input type="number" id="expAmount" class="input-field" placeholder="0.00" step="0.01" min="0.01" required>
         </div>
-        <div>
+        <div id="categoryWrap">
           <label style="font-size:12px;color:var(--fg-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:6px;">Category</label>
           <select id="expCategory" class="input-field" required></select>
         </div>
@@ -734,16 +754,10 @@
 </div>
 
 <script>
-  // ═══════════════════════════════════════════
-  // CLOUD CONFIGURATION
-  // ═══════════════════════════════════════════
   const BIN_ID = '69ce54a5856a682189f1eb77';
-  const API_KEY = '$2a$10$g76znpXn9nA3ft1eFt2Tmu2u0g7Z0nzl0cmhoWqX25/yKBAzvIL/C'; // <-- REPLACE THIS WITH YOUR NEW KEY!
+  const API_KEY = '$2a$10$g76znpXn9nA3ft1eFt2Tmu2u0g7Z0nzl0cmhoWqX25/yKBAzvIL/C';
   const API_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}/latest`;
 
-  // ═══════════════════════════════════════════
-  // STATE
-  // ═══════════════════════════════════════════
   let expenses = [];
   let currentYear, currentMonth;
   let selectedDate = null;
@@ -761,7 +775,6 @@
     bills: { label: 'Bills & Utilities', icon: 'fa-bolt', class: 'cat-bills' },
     health: { label: 'Health', icon: 'fa-heart-pulse', class: 'cat-health' },
     education: { label: 'Education', icon: 'fa-graduation-cap', class: 'cat-education' },
-    savings: { label: 'Savings', icon: 'fa-piggy-bank', class: 'cat-savings' },
     other: { label: 'Other', icon: 'fa-ellipsis', class: 'cat-other' }
   };
 
@@ -774,12 +787,15 @@
     other: { label: 'Other Income', icon: 'fa-ellipsis', class: 'cat-other' }
   };
 
+  const SAVINGS_CATEGORY = { label: 'Savings', icon: 'fa-piggy-bank', class: 'cat-savings' };
+
   function getCategories(type) {
+    if (type === 'savings') return { savings: SAVINGS_CATEGORY };
     return type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
   }
 
   // ═══════════════════════════════════════════
-  // CLOUD SYNC (JSONBin.io)
+  // CLOUD SYNC
   // ═══════════════════════════════════════════
   function updateSyncUI(state) {
     const el = document.getElementById('syncStatus');
@@ -798,9 +814,7 @@
   async function fetchExpenses() {
     try {
       updateSyncUI('syncing');
-      const res = await fetch(API_URL, {
-        headers: { 'X-Master-Key': API_KEY }
-      });
+      const res = await fetch(API_URL, { headers: { 'X-Master-Key': API_KEY } });
       if (!res.ok) throw new Error('Failed to fetch');
       const json = await res.json();
       const data = json.record;
@@ -824,10 +838,7 @@
       updateSyncUI('syncing');
       const res = await fetch(API_URL.replace('/latest', ''), {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Master-Key': API_KEY
-        },
+        headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
         body: JSON.stringify(expenses)
       });
       if (!res.ok) throw new Error('Failed to save');
@@ -837,7 +848,7 @@
       console.error('Push error:', err);
       updateSyncUI('error');
       localStorage.setItem('ledger_expenses', JSON.stringify(expenses));
-      showToast('Saved locally, sync failed. Check connection.', 'warning');
+      showToast('Saved locally, sync failed.', 'warning');
     }
     isSyncing = false;
   }
@@ -849,9 +860,7 @@
     const now = new Date();
     currentYear = now.getFullYear();
     currentMonth = now.getMonth();
-
     await fetchExpenses();
-    
     document.getElementById('loadingOverlay').classList.add('hidden');
     renderAll();
   }
@@ -913,16 +922,15 @@
 
     let dotsHtml = '', totalHtml = '';
     if (dayEntries && dayEntries.length > 0) {
-      const total = dayEntries.reduce((s, e) => s + (e.type === 'income' ? e.amount : -e.amount), 0);
-      const hasExp = dayEntries.some(e => e.type === 'expense' && e.category !== 'savings');
-      const hasSav = dayEntries.some(e => e.type === 'expense' && e.category === 'savings');
+      const total = dayEntries.reduce((s, e) => s + (e.type === 'income' ? e.amount : e.type === 'savings' ? 0 : -e.amount), 0);
+      const hasExp = dayEntries.some(e => e.type === 'expense');
+      const hasSav = dayEntries.some(e => e.type === 'savings');
       const hasInc = dayEntries.some(e => e.type === 'income');
       let dots = '';
-      if (hasExp) dots += `<span class="dot" style="background:var(--danger);opacity:0.7;"></span>`;
-      if (hasSav) dots += `<span class="dot" style="background:#f0b27a;opacity:0.8;"></span>`;
-      if (hasInc) dots += `<span class="dot" style="background:var(--income);opacity:0.7;"></span>`;
+      if (hasExp) dots += '<span class="dot" style="background:var(--danger);opacity:0.7;"></span>';
+      if (hasSav) dots += '<span class="dot" style="background:var(--savings);opacity:0.8;"></span>';
+      if (hasInc) dots += '<span class="dot" style="background:var(--income);opacity:0.7;"></span>';
       if (dots) dotsHtml = `<div class="expense-dots">${dots}</div>`;
-      
       const cls = total > 0 ? 'positive' : total < 0 ? 'negative' : '';
       totalHtml = `<span class="day-total ${cls}">${total >= 0 ? '+' : '-'}$${Math.abs(total).toFixed(0)}</span>`;
     }
@@ -970,61 +978,99 @@
     if (dayFilter !== 'all') dayEntries = dayEntries.filter(e => e.type === dayFilter);
 
     if (dayEntries.length === 0) {
-      const msg = dayFilter === 'all' ? 'No entries on this day' : dayFilter === 'expense' ? 'No expenses on this day' : 'No income on this day';
+      const msgs = { all: 'No entries on this day', expense: 'No expenses on this day', income: 'No income on this day', savings: 'No savings on this day' };
       container.innerHTML = `<div style="text-align:center;padding:24px 0;color:var(--fg-muted);font-size:14px;">
-        <i class="fa-regular fa-face-smile" style="font-size:28px;margin-bottom:12px;display:block;opacity:0.4;"></i>${msg}
+        <i class="fa-regular fa-face-smile" style="font-size:28px;margin-bottom:12px;display:block;opacity:0.4;"></i>${msgs[dayFilter]}
       </div>`;
       return;
     }
 
+    // Summary cards (always show for the full day regardless of filter)
     const allDay = expenses.filter(e => e.date === dateStr);
     const totalExpense = allDay.filter(e => e.type === 'expense').reduce((s, e) => s + e.amount, 0);
     const totalIncome = allDay.filter(e => e.type === 'income').reduce((s, e) => s + e.amount, 0);
-    const totalSavings = allDay.filter(e => e.type === 'expense' && e.category === 'savings').reduce((s, e) => s + e.amount, 0);
-    const net = totalIncome - totalExpense;
+    const totalSavings = allDay.filter(e => e.type === 'savings').reduce((s, e) => s + e.amount, 0);
+    const remaining = totalIncome - totalExpense - totalSavings;
 
-    let html = `<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
-      <div style="flex:1;min-width:70px;background:var(--danger-dim);border-radius:8px;padding:8px 12px;text-align:center;">
-        <div style="font-size:10px;color:var(--danger);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Out</div>
-        <div style="font-size:14px;font-weight:700;color:var(--danger);font-family:'Space Grotesk',sans-serif;">-$${totalExpense.toFixed(2)}</div>
+    let html = `<div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:60px;background:var(--danger-dim);border-radius:8px;padding:8px 10px;text-align:center;">
+        <div style="font-size:9px;color:var(--danger);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Out</div>
+        <div style="font-size:13px;font-weight:700;color:var(--danger);font-family:'Space Grotesk',sans-serif;">-$${totalExpense.toFixed(0)}</div>
       </div>
-      <div style="flex:1;min-width:70px;background:var(--income-dim);border-radius:8px;padding:8px 12px;text-align:center;">
-        <div style="font-size:10px;color:var(--income);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">In</div>
-        <div style="font-size:14px;font-weight:700;color:var(--income);font-family:'Space Grotesk',sans-serif;">+$${totalIncome.toFixed(2)}</div>
+      <div style="flex:1;min-width:60px;background:var(--income-dim);border-radius:8px;padding:8px 10px;text-align:center;">
+        <div style="font-size:9px;color:var(--income);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">In</div>
+        <div style="font-size:13px;font-weight:700;color:var(--income);font-family:'Space Grotesk',sans-serif;">+$${totalIncome.toFixed(0)}</div>
       </div>
-      <div style="flex:1;min-width:70px;background:rgba(240,178,122,0.12);border-radius:8px;padding:8px 12px;text-align:center;">
-        <div style="font-size:10px;color:#f0b27a;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Saved</div>
-        <div style="font-size:14px;font-weight:700;color:#f0b27a;font-family:'Space Grotesk',sans-serif;">$${totalSavings.toFixed(2)}</div>
+      <div style="flex:1;min-width:60px;background:var(--savings-dim);border-radius:8px;padding:8px 10px;text-align:center;">
+        <div style="font-size:9px;color:var(--savings);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Saved</div>
+        <div style="font-size:13px;font-weight:700;color:var(--savings);font-family:'Space Grotesk',sans-serif;">$${totalSavings.toFixed(0)}</div>
       </div>
     </div>
     <div style="display:flex;justify-content:center;margin-bottom:14px;">
-      <div style="background:${net >= 0 ? 'var(--income-dim)' : 'var(--danger-dim)'};border-radius:8px;padding:6px 16px;text-align:center;">
-        <span style="font-size:13px;font-weight:700;font-family:'Space Grotesk',sans-serif;" class="${net >= 0 ? 'net-positive' : 'net-negative'}">Net: ${net >= 0 ? '+' : '-'}$${Math.abs(net).toFixed(2)}</span>
+      <div style="background:${remaining >= 0 ? 'var(--income-dim)' : 'var(--danger-dim)'};border-radius:8px;padding:5px 16px;text-align:center;">
+        <span style="font-size:12px;font-weight:700;font-family:'Space Grotesk',sans-serif;" class="${remaining >= 0 ? 'net-positive' : 'net-negative'}">Left: ${remaining >= 0 ? '+' : '-'}$${Math.abs(remaining).toFixed(2)}</span>
       </div>
     </div>`;
 
-    html += '<div style="display:flex;flex-direction:column;gap:8px;">';
-    dayEntries.forEach(entry => {
-      const cats = getCategories(entry.type);
-      const cat = cats[entry.category] || cats.other;
-      const isIncome = entry.type === 'income';
-      const isSavings = entry.type === 'expense' && entry.category === 'savings';
-      html += `<div class="expense-item" style="${isSavings ? 'border-color:rgba(240,178,122,0.25);background:linear-gradient(135deg,rgba(240,178,122,0.06),var(--bg-card));' : ''}">
-        <div class="cat-icon ${cat.class}" style="color:#0f0f0f;"><i class="fa-solid ${cat.icon}"></i></div>
-        <div style="flex:1;min-width:0;">
-          <div style="font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-            ${escapeHtml(entry.description)}${isSavings ? '<span class="savings-badge"><i class="fa-solid fa-piggy-bank" style="font-size:8px;"></i>Saved</span>' : ''}
+    // Savings box if there are savings entries and filter is 'all' or 'savings'
+    const savingsEntries = dayEntries.filter(e => e.type === 'savings');
+    if (savingsEntries.length > 0 && (dayFilter === 'all' || dayFilter === 'savings')) {
+      const daySavTotal = savingsEntries.reduce((s, e) => s + e.amount, 0);
+      html += `<div class="savings-box">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div style="width:28px;height:28px;border-radius:8px;background:var(--savings);display:flex;align-items:center;justify-content:center;">
+              <i class="fa-solid fa-piggy-bank" style="color:#0f0f0f;font-size:12px;"></i>
+            </div>
+            <div>
+              <div style="font-size:12px;font-weight:700;color:var(--savings);font-family:'Space Grotesk',sans-serif;">Savings</div>
+              <div style="font-size:10px;color:var(--fg-muted);">${savingsEntries.length} entry${savingsEntries.length > 1 ? 'ies' : 'y'}</div>
+            </div>
           </div>
-          <div style="font-size:11px;color:var(--fg-muted);">${cat.label}${entry.note ? ' — ' + escapeHtml(entry.note) : ''}</div>
+          <div style="text-align:right;">
+            <div style="font-size:16px;font-weight:700;color:var(--savings);font-family:'Space Grotesk',sans-serif;">$${daySavTotal.toFixed(2)}</div>
+          </div>
         </div>
-        <div style="text-align:right;flex-shrink:0;display:flex;align-items:center;gap:6px;">
-          <span style="font-size:14px;font-weight:700;font-family:'Space Grotesk',sans-serif;${isSavings ? 'color:#f0b27a;' : ''}" class="${isIncome ? 'amount-income' : isSavings ? '' : 'amount-expense'}">${isIncome ? '+' : '-'}$${entry.amount.toFixed(2)}</span>
-          <button class="btn-icon" onclick="openEditModal(${entry.id})" aria-label="Edit"><i class="fa-solid fa-pen" style="font-size:11px;"></i></button>
-          <button class="btn-icon danger" onclick="openDeleteModal(${entry.id})" aria-label="Delete"><i class="fa-solid fa-trash-can" style="font-size:11px;"></i></button>
-        </div>
-      </div>`;
-    });
-    html += '</div>';
+        <div style="display:flex;flex-direction:column;gap:6px;">`;
+      savingsEntries.forEach(entry => {
+        html += `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:rgba(0,0,0,0.2);border-radius:8px;">
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(entry.description)}${entry.note ? ' <span style="color:var(--fg-muted);font-weight:400;">— ' + escapeHtml(entry.note) + '</span>' : ''}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;">
+            <span style="font-size:13px;font-weight:700;color:var(--savings);font-family:'Space Grotesk',sans-serif;">$${entry.amount.toFixed(2)}</span>
+            <button class="btn-icon" onclick="openEditModal(${entry.id})" aria-label="Edit" style="padding:4px;"><i class="fa-solid fa-pen" style="font-size:10px;"></i></button>
+            <button class="btn-icon danger" onclick="openDeleteModal(${entry.id})" aria-label="Delete" style="padding:4px;"><i class="fa-solid fa-trash-can" style="font-size:10px;"></i></button>
+          </div>
+        </div>`;
+      });
+      html += `</div></div>`;
+    }
+
+    // Other transactions (expense + income)
+    const otherEntries = dayEntries.filter(e => e.type !== 'savings');
+    if (otherEntries.length > 0) {
+      html += '<div style="display:flex;flex-direction:column;gap:8px;">';
+      otherEntries.forEach(entry => {
+        const cats = getCategories(entry.type);
+        const cat = cats[entry.category] || cats.other;
+        const isIncome = entry.type === 'income';
+        html += `<div class="expense-item">
+          <div class="cat-icon ${cat.class}" style="color:#0f0f0f;"><i class="fa-solid ${cat.icon}"></i></div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(entry.description)}</div>
+            <div style="font-size:11px;color:var(--fg-muted);">${cat.label}${entry.note ? ' — ' + escapeHtml(entry.note) : ''}</div>
+          </div>
+          <div style="text-align:right;flex-shrink:0;display:flex;align-items:center;gap:6px;">
+            <span style="font-size:14px;font-weight:700;font-family:'Space Grotesk',sans-serif;" class="${isIncome ? 'amount-income' : 'amount-expense'}">${isIncome ? '+' : '-'}$${entry.amount.toFixed(2)}</span>
+            <button class="btn-icon" onclick="openEditModal(${entry.id})" aria-label="Edit"><i class="fa-solid fa-pen" style="font-size:11px;"></i></button>
+            <button class="btn-icon danger" onclick="openDeleteModal(${entry.id})" aria-label="Delete"><i class="fa-solid fa-trash-can" style="font-size:11px;"></i></button>
+          </div>
+        </div>`;
+      });
+      html += '</div>';
+    }
+
     container.innerHTML = html;
   }
 
@@ -1035,7 +1081,8 @@
     const monthExps = getMonthExpenses();
     const totalExpense = monthExps.filter(e => e.type === 'expense').reduce((s, e) => s + e.amount, 0);
     const totalIncome = monthExps.filter(e => e.type === 'income').reduce((s, e) => s + e.amount, 0);
-    const net = totalIncome - totalExpense;
+    const totalSavings = monthExps.filter(e => e.type === 'savings').reduce((s, e) => s + e.amount, 0);
+    const remaining = totalIncome - totalExpense - totalSavings;
 
     const dayTotals = {};
     monthExps.filter(e => e.type === 'expense').forEach(e => {
@@ -1046,14 +1093,15 @@
 
     document.getElementById('statExpense').textContent = `$${totalExpense.toFixed(2)}`;
     document.getElementById('statIncome').textContent = `$${totalIncome.toFixed(2)}`;
+    document.getElementById('statSaved').textContent = `$${totalSavings.toFixed(2)}`;
 
     const netEl = document.getElementById('statNet');
-    netEl.textContent = `${net >= 0 ? '+' : '-'}$${Math.abs(net).toFixed(2)}`;
+    netEl.textContent = `${remaining >= 0 ? '+' : '-'}$${Math.abs(remaining).toFixed(2)}`;
     netEl.className = 'font-display';
-    netEl.style.fontSize = '26px';
+    netEl.style.fontSize = '24px';
     netEl.style.fontWeight = '700';
-    if (net > 0) { netEl.classList.add('net-positive'); netEl.style.color = ''; }
-    else if (net < 0) { netEl.classList.add('net-negative'); netEl.style.color = ''; }
+    if (remaining > 0) { netEl.classList.add('net-positive'); netEl.style.color = ''; }
+    else if (remaining < 0) { netEl.classList.add('net-negative'); netEl.style.color = ''; }
     else { netEl.style.color = 'var(--fg)'; }
 
     document.getElementById('statCount').textContent = monthExps.length;
@@ -1092,11 +1140,10 @@
     legendEl.innerHTML = sorted.map(([cat, amt]) => {
       const c = cats[cat] || cats.other;
       const pct = total > 0 ? (amt / total * 100).toFixed(1) : 0;
-      const isSavings = cat === 'savings';
-      return `<div style="display:flex;align-items:center;gap:10px;${isSavings ? 'padding:6px 8px;background:rgba(240,178,122,0.06);border-radius:8px;border:1px solid rgba(240,178,122,0.15);' : ''}">
+      return `<div style="display:flex;align-items:center;gap:10px;">
         <div style="width:10px;height:10px;border-radius:3px;flex-shrink:0;" class="${c.class}"></div>
-        <span style="flex:1;font-size:13px;color:${isSavings ? '#f0b27a' : 'var(--fg-muted)'};font-weight:${isSavings ? '600' : '400'};">${c.label}${isSavings ? ' <i class="fa-solid fa-piggy-bank" style="font-size:10px;"></i>' : ''}</span>
-        <span style="font-size:13px;font-weight:600;font-family:'Space Grotesk',sans-serif;${isSavings ? 'color:#f0b27a;' : ''}">$${amt.toFixed(2)}</span>
+        <span style="flex:1;font-size:13px;color:var(--fg-muted);">${c.label}</span>
+        <span style="font-size:13px;font-weight:600;font-family:'Space Grotesk',sans-serif;">$${amt.toFixed(2)}</span>
         <span style="font-size:11px;color:var(--fg-muted);width:42px;text-align:right;">${pct}%</span>
       </div>`;
     }).join('');
@@ -1169,16 +1216,30 @@
     document.querySelectorAll('#typeToggle .type-toggle-btn').forEach(btn => {
       btn.className = 'type-toggle-btn';
       if (btn.dataset.type === currentType) {
-        btn.classList.add(currentType === 'income' ? 'active-income' : 'active-expense');
+        btn.classList.add('active-' + currentType);
       }
     });
-    document.getElementById('modalSubmitBtn').classList.toggle('income-btn', currentType === 'income');
+    const btn = document.getElementById('modalSubmitBtn');
+    btn.className = 'btn-primary';
+    btn.style.flex = '1';
+    if (currentType === 'income') btn.classList.add('income-btn');
+    else if (currentType === 'savings') btn.classList.add('savings-btn');
   }
 
   function populateCategories() {
     const select = document.getElementById('expCategory');
+    const wrap = document.getElementById('categoryWrap');
     const cats = getCategories(currentType);
-    select.innerHTML = Object.entries(cats).map(([key, val]) => `<option value="${key}">${val.label}</option>`).join('');
+    const keys = Object.keys(cats);
+
+    if (currentType === 'savings') {
+      // Hide category selector for savings — it's always "savings"
+      wrap.style.display = 'none';
+      select.value = 'savings';
+    } else {
+      wrap.style.display = '';
+      select.innerHTML = keys.map(([key]) => `<option value="${key}">${cats[key].label}</option>`).join('');
+    }
   }
 
   function openModal(id) {
@@ -1192,8 +1253,10 @@
   }
 
   function openAddModal(type) {
-    document.getElementById('modalTitle').textContent = type === 'income' ? 'Add Income' : 'Add Expense';
-    document.getElementById('modalSubmitBtn').textContent = type === 'income' ? 'Add Income' : 'Add Expense';
+    const titles = { expense: 'Add Expense', income: 'Add Income', savings: 'Add to Savings' };
+    const btnTexts = { expense: 'Add Expense', income: 'Add Income', savings: 'Add to Savings' };
+    document.getElementById('modalTitle').textContent = titles[type];
+    document.getElementById('modalSubmitBtn').textContent = btnTexts[type];
     document.getElementById('editId').value = '';
     document.getElementById('expenseForm').reset();
     currentType = type;
@@ -1218,12 +1281,13 @@
     currentType = entry.type || 'expense';
     updateTypeToggle();
     populateCategories();
-    document.getElementById('modalTitle').textContent = currentType === 'income' ? 'Edit Income' : 'Edit Expense';
+    const titles = { expense: 'Edit Expense', income: 'Edit Income', savings: 'Edit Savings' };
+    document.getElementById('modalTitle').textContent = titles[currentType] || 'Edit Entry';
     document.getElementById('modalSubmitBtn').textContent = 'Save Changes';
     document.getElementById('editId').value = id;
     document.getElementById('expDesc').value = entry.description;
     document.getElementById('expAmount').value = entry.amount;
-    document.getElementById('expCategory').value = entry.category;
+    document.getElementById('expCategory').value = entry.category || 'savings';
     document.getElementById('expDate').value = entry.date;
     document.getElementById('expNote').value = entry.note || '';
     openModal('addModal');
@@ -1235,7 +1299,7 @@
     const editId = document.getElementById('editId').value;
     const desc = document.getElementById('expDesc').value.trim();
     const amount = parseFloat(document.getElementById('expAmount').value);
-    const category = document.getElementById('expCategory').value;
+    const category = currentType === 'savings' ? 'savings' : document.getElementById('expCategory').value;
     const date = document.getElementById('expDate').value;
     const note = document.getElementById('expNote').value.trim();
 
@@ -1256,12 +1320,11 @@
       }
     } else {
       expenses.push({ id: generateId(), description: desc, amount, category, date, note, type: currentType });
-      const isSavings = currentType === 'expense' && category === 'savings';
-      showToast(isSavings ? 'Savings added successfully' : currentType === 'income' ? 'Income added successfully' : 'Expense added successfully', 'success');
+      const msgs = { expense: 'Expense added', income: 'Income added', savings: 'Savings added' };
+      showToast(msgs[currentType] + ' successfully', 'success');
     }
 
     await pushExpenses();
-    
     btn.disabled = false;
     closeModal('addModal');
 
@@ -1319,12 +1382,13 @@
     let csv = `Ledger — ${monthNames[currentMonth]} ${currentYear}\n\nDate,Type,Description,Category,Amount,Note\n`;
     monthExps.sort((a, b) => a.date.localeCompare(b.date)).forEach(e => {
       const cats = getCategories(e.type);
-      csv += `${e.date},${e.type === 'income' ? 'Income' : e.category === 'savings' ? 'Savings' : 'Expense'},"${e.description}",${cats[e.category]?.label || 'Other'},${e.amount.toFixed(2)},"${e.note || ''}"\n`;
+      const typeLabel = e.type === 'savings' ? 'Savings' : e.type === 'income' ? 'Income' : 'Expense';
+      csv += `${e.date},${typeLabel},"${e.description}",${cats[e.category]?.label || 'Savings'},${e.amount.toFixed(2)},"${e.note || ''}"\n`;
     });
     const totalExpense = monthExps.filter(e => e.type === 'expense').reduce((s, e) => s + e.amount, 0);
     const totalIncome = monthExps.filter(e => e.type === 'income').reduce((s, e) => s + e.amount, 0);
-    const totalSavings = monthExps.filter(e => e.type === 'expense' && e.category === 'savings').reduce((s, e) => s + e.amount, 0);
-    csv += `\nTotal Expenses,,,"${totalExpense.toFixed(2)}"\n  Of which Savings,,,"${totalSavings.toFixed(2)}"\nTotal Income,,,"${totalIncome.toFixed(2)}"\nNet Savings,,,"${(totalIncome - totalExpense).toFixed(2)}"\n`;
+    const totalSavings = monthExps.filter(e => e.type === 'savings').reduce((s, e) => s + e.amount, 0);
+    csv += `\nTotal Expenses,,,"${totalExpense.toFixed(2)}"\nTotal Income,,,"${totalIncome.toFixed(2)}"\nTotal Savings,,,"${totalSavings.toFixed(2)}"\nRemaining,,,"${(totalIncome - totalExpense - totalSavings).toFixed(2)}"\n`;
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -1352,9 +1416,6 @@
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.target.click(); }
   });
 
-  // ═══════════════════════════════════════════
-  // BOOT
-  // ═══════════════════════════════════════════
   init();
 </script>
 
