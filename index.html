@@ -444,9 +444,12 @@
     border-radius: 6px;
     background: var(--bg-card);
     border: 1px solid var(--border);
+    cursor: pointer;
+    transition: all 0.2s ease;
   }
+  .sync-indicator:hover { border-color: var(--border-light); }
   .sync-indicator.syncing { color: var(--accent); }
-  .sync-indicator.error { color: var(--danger); }
+  .sync-indicator.error { color: var(--danger); border-color: var(--danger-dim); }
   .sync-indicator .spin { animation: spin 1s linear infinite; }
   @keyframes spin { 100% { transform: rotate(360deg); } }
 
@@ -544,7 +547,7 @@
         <span style="font-size:11px;color:var(--fg-muted);background:var(--bg-card);padding:3px 8px;border-radius:6px;border:1px solid var(--border);">Income & Expense</span>
       </div>
       <div style="display:flex;align-items:center;gap:8px;" class="header-actions">
-        <div id="syncStatus" class="sync-indicator">
+        <div id="syncStatus" class="sync-indicator" onclick="forceSync()" title="Click to retry sync">
           <i class="fa-solid fa-cloud"></i>
           <span>Cloud</span>
         </div>
@@ -757,6 +760,7 @@
   const BIN_ID = '69ce54a5856a682189f1eb77';
   const API_KEY = '$2a$10$g76znpXn9nA3ft1eFt2Tmu2u0g7Z0nzl0cmhoWqX25/yKBAzvIL/C';
   const API_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}/latest`;
+  const API_PUT_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
 
   let expenses = [];
   let currentYear, currentMonth;
@@ -766,6 +770,7 @@
   let dayFilter = 'all';
   let catFilter = 'expense';
   let isSyncing = false;
+  let needsMigrationPush = false;
 
   const EXPENSE_CATEGORIES = {
     food: { label: 'Food & Dining', icon: 'fa-utensils', class: 'cat-food' },
@@ -795,62 +800,184 @@
   }
 
   // ═══════════════════════════════════════════
-  // CLOUD SYNC
+  // DATA MIGRATION — converts old savings format
   // ═══════════════════════════════════════════
-  function updateSyncUI(state) {
+  function migrateData(data) {
+    let migrated = false;
+    const cleaned = data.filter(e => e.description !== 'Starting balance');
+    const result = cleaned.map(e => {
+      // Old format: type:'expense' + category:'savings'
+      if (e.type === 'expense' && e.category === 'savings') {
+        migrated = true;
+        return { ...e, type: 'savings', category: 'savings' };
+      }
+      // Ensure every entry has a valid type
+      if (e.type !== 'expense' && e.type !== 'income' && e.type !== 'savings') {
+        e.type = 'expense';
+      }
+      return e;
+    });
+    return { data: result, migrated };
+  }
+
+  // ═══════════════════════════════════════════
+  // CLOUD SYNC with retry
+  // ═══════════════════════════════════════════
+  function updateSyncUI(state, detail) {
     const el = document.getElementById('syncStatus');
     if (state === 'syncing') {
       el.className = 'sync-indicator syncing';
       el.innerHTML = '<i class="fa-solid fa-cloud-arrow-up spin"></i><span>Saving...</span>';
+      el.title = 'Syncing...';
     } else if (state === 'error') {
       el.className = 'sync-indicator error';
-      el.innerHTML = '<i class="fa-solid fa-cloud-xmark"></i><span>Offline</span>';
+      el.innerHTML = '<i class="fa-solid fa-cloud-xmark"></i><span>Retry</span>';
+      el.title = detail || 'Sync failed — click to retry';
     } else {
       el.className = 'sync-indicator';
       el.innerHTML = '<i class="fa-solid fa-cloud-check"></i><span>Synced</span>';
+      el.title = 'Click to force sync';
+    }
+  }
+
+  async function fetchWithRetry(url, options, retries = 2) {
+    for (let i = 0; i <= retries; i++) {
+      try {
+        const res = await fetch(url, options);
+        if (res.status === 429) {
+          // Rate limited — wait and retry
+          const waitTime = 1000 * (i + 1);
+          console.warn(`Rate limited, waiting ${waitTime}ms before retry ${i + 1}...`);
+          await new Promise(r => setTimeout(r, waitTime));
+          continue;
+        }
+        if (!res.ok) {
+          const errBody = await res.text().catch(() => '');
+          throw new Error(`HTTP ${res.status}: ${errBody.substring(0, 200)}`);
+        }
+        return res;
+      } catch (err) {
+        if (i === retries) throw err;
+        await new Promise(r => setTimeout(r, 800));
+      }
     }
   }
 
   async function fetchExpenses() {
     try {
       updateSyncUI('syncing');
-      const res = await fetch(API_URL, { headers: { 'X-Master-Key': API_KEY } });
-      if (!res.ok) throw new Error('Failed to fetch');
+      const res = await fetchWithRetry(API_URL, {
+        headers: { 'X-Master-Key': API_KEY }
+      });
       const json = await res.json();
-      const data = json.record;
-      if (Array.isArray(data)) {
-        expenses = data.filter(e => e.description !== 'Starting balance');
+      const raw = json.record;
+
+      if (Array.isArray(raw)) {
+        const { data: migrated, migrated: didMigrate } = migrateData(raw);
+        expenses = migrated;
+        needsMigrationPush = didMigrate;
       } else {
         expenses = [];
       }
       updateSyncUI('synced');
+
+      // If old-format savings entries were found, push the migrated data back
+      if (needsMigrationPush) {
+        console.log('Migrated old savings entries — pushing updated data...');
+        await pushExpenses(true);
+      }
     } catch (err) {
-      console.error('Fetch error:', err);
-      updateSyncUI('error');
+      console.error('Fetch error:', err.message);
+      updateSyncUI('error', err.message);
       expenses = JSON.parse(localStorage.getItem('ledger_expenses') || '[]');
+      const { data: migrated } = migrateData(expenses);
+      expenses = migrated;
     }
   }
 
-  async function pushExpenses() {
+  async function pushExpenses(silent = false) {
     if (isSyncing) return;
     isSyncing = true;
     try {
-      updateSyncUI('syncing');
-      const res = await fetch(API_URL.replace('/latest', ''), {
+      if (!silent) updateSyncUI('syncing');
+
+      // Clean data before sending — ensure valid structure
+      const cleanData = expenses.map(e => ({
+        id: e.id || generateId(),
+        description: (e.description || '').substring(0, 100),
+        amount: parseFloat(e.amount) || 0,
+        category: e.category || 'other',
+        date: e.date || new Date().toISOString().split('T')[0],
+        note: (e.note || '').substring(0, 200),
+        type: (e.type === 'savings' || e.type === 'income') ? e.type : 'expense'
+      }));
+
+      const res = await fetchWithRetry(API_PUT_URL, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
-        body: JSON.stringify(expenses)
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Master-Key': API_KEY
+        },
+        body: JSON.stringify(cleanData)
       });
-      if (!res.ok) throw new Error('Failed to save');
+
+      const result = await res.json();
+      console.log('Push success:', result);
+
       updateSyncUI('synced');
-      localStorage.setItem('ledger_expenses', JSON.stringify(expenses));
+      localStorage.setItem('ledger_expenses', JSON.stringify(cleanData));
+
+      if (!silent) {
+        // No toast on success — keep it clean
+      }
     } catch (err) {
-      console.error('Push error:', err);
-      updateSyncUI('error');
+      console.error('Push error:', err.message);
+      updateSyncUI('error', err.message);
       localStorage.setItem('ledger_expenses', JSON.stringify(expenses));
-      showToast('Saved locally, sync failed.', 'warning');
+      if (!silent) {
+        showToast('Sync failed: ' + err.message.substring(0, 80), 'warning');
+      }
     }
     isSyncing = false;
+  }
+
+  // Force sync — triggered by clicking the sync indicator
+  async function forceSync() {
+    if (isSyncing) return;
+    showToast('Force syncing...', 'info');
+    try {
+      updateSyncUI('syncing');
+      const res = await fetchWithRetry(API_URL, {
+        headers: { 'X-Master-Key': API_KEY }
+      });
+      const json = await res.json();
+      const raw = json.record;
+
+      if (Array.isArray(raw)) {
+        const { data: migrated } = migrateData(raw);
+        // Merge: keep local changes that are newer
+        const serverMap = new Map(migrated.map(e => [e.id, e]));
+        const localMap = new Map(expenses.map(e => [e.id, e]));
+        // Server wins for IDs that exist on both sides only if server is newer
+        // But for simplicity, we merge by taking all server entries + local entries not on server
+        const merged = [...migrated];
+        expenses.forEach(local => {
+          if (!serverMap.has(local.id)) {
+            merged.push(local);
+          }
+        });
+        expenses = merged;
+      }
+
+      await pushExpenses(true);
+      updateSyncUI('synced');
+      showToast('Sync complete', 'success');
+      renderAll();
+    } catch (err) {
+      console.error('Force sync error:', err.message);
+      updateSyncUI('error', err.message);
+      showToast('Sync failed: ' + err.message.substring(0, 80), 'warning');
+    }
   }
 
   // ═══════════════════════════════════════════
@@ -860,7 +987,9 @@
     const now = new Date();
     currentYear = now.getFullYear();
     currentMonth = now.getMonth();
+
     await fetchExpenses();
+
     document.getElementById('loadingOverlay').classList.add('hidden');
     renderAll();
   }
@@ -922,6 +1051,7 @@
 
     let dotsHtml = '', totalHtml = '';
     if (dayEntries && dayEntries.length > 0) {
+      // Savings is neutral in the day total
       const total = dayEntries.reduce((s, e) => s + (e.type === 'income' ? e.amount : e.type === 'savings' ? 0 : -e.amount), 0);
       const hasExp = dayEntries.some(e => e.type === 'expense');
       const hasSav = dayEntries.some(e => e.type === 'savings');
@@ -974,7 +1104,7 @@
     addBtns.style.display = 'flex';
     filterTabs.style.display = 'flex';
 
-    let dayEntries = expenses.filter(e => e.date === dateStr).sort((a, b) => b.id - a.id);
+    let dayEntries = expenses.filter(e => e.date === dateStr).sort((a, b) => (b.id || 0) - (a.id || 0));
     if (dayFilter !== 'all') dayEntries = dayEntries.filter(e => e.type === dayFilter);
 
     if (dayEntries.length === 0) {
@@ -985,7 +1115,6 @@
       return;
     }
 
-    // Summary cards (always show for the full day regardless of filter)
     const allDay = expenses.filter(e => e.date === dateStr);
     const totalExpense = allDay.filter(e => e.type === 'expense').reduce((s, e) => s + e.amount, 0);
     const totalIncome = allDay.filter(e => e.type === 'income').reduce((s, e) => s + e.amount, 0);
@@ -1012,7 +1141,7 @@
       </div>
     </div>`;
 
-    // Savings box if there are savings entries and filter is 'all' or 'savings'
+    // Savings box
     const savingsEntries = dayEntries.filter(e => e.type === 'savings');
     if (savingsEntries.length > 0 && (dayFilter === 'all' || dayFilter === 'savings')) {
       const daySavTotal = savingsEntries.reduce((s, e) => s + e.amount, 0);
@@ -1024,12 +1153,10 @@
             </div>
             <div>
               <div style="font-size:12px;font-weight:700;color:var(--savings);font-family:'Space Grotesk',sans-serif;">Savings</div>
-              <div style="font-size:10px;color:var(--fg-muted);">${savingsEntries.length} entry${savingsEntries.length > 1 ? 'ies' : 'y'}</div>
+              <div style="font-size:10px;color:var(--fg-muted);">${savingsEntries.length} entr${savingsEntries.length > 1 ? 'ies' : 'y'}</div>
             </div>
           </div>
-          <div style="text-align:right;">
-            <div style="font-size:16px;font-weight:700;color:var(--savings);font-family:'Space Grotesk',sans-serif;">$${daySavTotal.toFixed(2)}</div>
-          </div>
+          <div style="font-size:16px;font-weight:700;color:var(--savings);font-family:'Space Grotesk',sans-serif;">$${daySavTotal.toFixed(2)}</div>
         </div>
         <div style="display:flex;flex-direction:column;gap:6px;">`;
       savingsEntries.forEach(entry => {
@@ -1047,7 +1174,7 @@
       html += `</div></div>`;
     }
 
-    // Other transactions (expense + income)
+    // Other transactions
     const otherEntries = dayEntries.filter(e => e.type !== 'savings');
     if (otherEntries.length > 0) {
       html += '<div style="display:flex;flex-direction:column;gap:8px;">';
@@ -1154,7 +1281,7 @@
   // ═══════════════════════════════════════════
   function getMonthExpenses() {
     const prefix = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
-    return expenses.filter(e => e.date.startsWith(prefix));
+    return expenses.filter(e => e.date && e.date.startsWith(prefix));
   }
 
   function formatDateStr(y, m, d) {
@@ -1230,15 +1357,13 @@
     const select = document.getElementById('expCategory');
     const wrap = document.getElementById('categoryWrap');
     const cats = getCategories(currentType);
-    const keys = Object.keys(cats);
 
     if (currentType === 'savings') {
-      // Hide category selector for savings — it's always "savings"
       wrap.style.display = 'none';
       select.value = 'savings';
     } else {
       wrap.style.display = '';
-      select.innerHTML = keys.map(([key]) => `<option value="${key}">${cats[key].label}</option>`).join('');
+      select.innerHTML = Object.entries(cats).map(([key]) => `<option value="${key}">${cats[key].label}</option>`).join('');
     }
   }
 
@@ -1310,6 +1435,7 @@
 
     const btn = document.getElementById('modalSubmitBtn');
     btn.disabled = true;
+    const origText = btn.textContent;
     btn.textContent = 'Saving...';
 
     if (editId) {
@@ -1325,7 +1451,9 @@
     }
 
     await pushExpenses();
+
     btn.disabled = false;
+    btn.textContent = origText;
     closeModal('addModal');
 
     const parts = date.split('-');
@@ -1369,7 +1497,7 @@
     };
     toast.innerHTML = `${icons[type] || icons.info}<span>${message}</span>`;
     container.appendChild(toast);
-    setTimeout(() => { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 3000);
+    setTimeout(() => { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 3500);
   }
 
   // ═══════════════════════════════════════════
@@ -1380,7 +1508,7 @@
     if (monthExps.length === 0) { showToast('No entries to export for this month', 'warning'); return; }
     const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
     let csv = `Ledger — ${monthNames[currentMonth]} ${currentYear}\n\nDate,Type,Description,Category,Amount,Note\n`;
-    monthExps.sort((a, b) => a.date.localeCompare(b.date)).forEach(e => {
+    monthExps.sort((a, b) => (a.date || '').localeCompare(b.date || '')).forEach(e => {
       const cats = getCategories(e.type);
       const typeLabel = e.type === 'savings' ? 'Savings' : e.type === 'income' ? 'Income' : 'Expense';
       csv += `${e.date},${typeLabel},"${e.description}",${cats[e.category]?.label || 'Savings'},${e.amount.toFixed(2)},"${e.note || ''}"\n`;
