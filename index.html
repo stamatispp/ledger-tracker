@@ -467,6 +467,83 @@
     margin-bottom: 14px;
   }
 
+  /* Scheduled entries (future-dated, not yet active) */
+  .cal-day .dot.scheduled {
+    opacity: 0.4 !important;
+    border: 1px dashed rgba(255,255,255,0.5);
+    background: transparent !important;
+  }
+  .cal-day .dot.scheduled.dot-expense { border-color: var(--danger); }
+  .cal-day .dot.scheduled.dot-income { border-color: var(--income); }
+  .scheduled-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 6px;
+    background: rgba(138,133,120,0.15);
+    color: var(--fg-muted);
+    border: 1px dashed var(--border-light);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .expense-item.scheduled {
+    opacity: 0.75;
+    border-style: dashed;
+  }
+  .amount-withdraw { color: var(--danger); }
+
+  /* Goal card */
+  .goal-card {
+    background: linear-gradient(135deg, var(--savings-dim), rgba(240,178,122,0.04));
+    border: 1px solid var(--savings-border);
+    border-radius: 20px;
+    padding: 20px 24px;
+  }
+  .goal-progress-track {
+    height: 10px;
+    background: rgba(0,0,0,0.3);
+    border-radius: 5px;
+    overflow: hidden;
+    position: relative;
+  }
+  .goal-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--savings), #f5c28e);
+    border-radius: 5px;
+    transition: width 0.6s ease;
+  }
+  .goal-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .goal-stat .label {
+    font-size: 10px;
+    color: var(--fg-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+  }
+  .goal-stat .value {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--savings);
+  }
+  .goal-stat .value.muted { color: var(--fg); }
+
+  .danger-zone {
+    color: var(--danger) !important;
+    border-color: var(--danger-dim) !important;
+  }
+  .danger-zone:hover {
+    background: var(--danger-dim) !important;
+    border-color: var(--danger) !important;
+  }
+
   #loadingOverlay {
     position: fixed;
     inset: 0;
@@ -551,8 +628,14 @@
           <i class="fa-solid fa-cloud"></i>
           <span>Cloud</span>
         </div>
+        <button class="btn-ghost" onclick="openGoalModal()" style="padding:8px 14px;font-size:13px;">
+          <i class="fa-solid fa-bullseye" style="margin-right:6px;"></i>Goal
+        </button>
         <button class="btn-ghost" onclick="exportData()" style="padding:8px 14px;font-size:13px;">
           <i class="fa-solid fa-download" style="margin-right:6px;"></i>Export
+        </button>
+        <button class="btn-ghost danger-zone" onclick="openResetModal()" style="padding:8px 14px;font-size:13px;" title="Reset all data">
+          <i class="fa-solid fa-rotate-left" style="margin-right:6px;"></i>Reset
         </button>
         <button class="btn-primary" onclick="openAddModal('expense')" style="padding:8px 16px;font-size:13px;">
           <i class="fa-solid fa-minus" style="margin-right:4px;font-size:10px;"></i>Expense
@@ -600,6 +683,58 @@
       <div class="stat-card">
         <div style="font-size:11px;color:var(--fg-muted);text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:8px;">Daily Avg</div>
         <div id="statAvg" class="font-display" style="font-size:24px;font-weight:700;">$0.00</div>
+      </div>
+    </div>
+
+    <!-- Savings Goal Card (hidden unless a goal is set) -->
+    <div id="goalCard" class="goal-card fade-up fade-up-1" style="display:none;margin-bottom:28px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px;">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div style="width:40px;height:40px;border-radius:10px;background:var(--savings);display:flex;align-items:center;justify-content:center;">
+            <i class="fa-solid fa-bullseye" style="color:#0f0f0f;font-size:16px;"></i>
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--savings);text-transform:uppercase;letter-spacing:1px;font-weight:600;">Savings Goal</div>
+            <div id="goalName" class="font-display" style="font-size:18px;font-weight:700;line-height:1.2;">—</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;">
+          <button class="btn-icon" onclick="openGoalModal()" aria-label="Edit goal"><i class="fa-solid fa-pen" style="font-size:12px;"></i></button>
+          <button class="btn-icon danger" onclick="clearGoal()" aria-label="Clear goal"><i class="fa-solid fa-xmark" style="font-size:14px;"></i></button>
+        </div>
+      </div>
+      <div class="goal-progress-track" style="margin-bottom:6px;">
+        <div id="goalProgressFill" class="goal-progress-fill" style="width:0%;"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--fg-muted);margin-bottom:16px;">
+        <span id="goalProgressText">$0 of $0</span>
+        <span id="goalProgressPct">0%</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;">
+        <div class="goal-stat">
+          <span class="label">Target</span>
+          <span id="goalTarget" class="value">$0</span>
+        </div>
+        <div class="goal-stat">
+          <span class="label">Target Date</span>
+          <span id="goalDate" class="value muted">—</span>
+        </div>
+        <div class="goal-stat">
+          <span class="label">Monthly Income</span>
+          <span id="goalIncome" class="value muted">$0</span>
+        </div>
+        <div class="goal-stat">
+          <span class="label">Save / Month</span>
+          <span id="goalMonthly" class="value">$0</span>
+        </div>
+        <div class="goal-stat">
+          <span class="label">Months Left</span>
+          <span id="goalMonths" class="value muted">—</span>
+        </div>
+        <div class="goal-stat">
+          <span class="label">Status</span>
+          <span id="goalStatus" class="value muted">—</span>
+        </div>
       </div>
     </div>
 
@@ -658,6 +793,9 @@
               </button>
               <button class="btn-icon" onclick="openAddModalForSelected('savings')" aria-label="Add savings" style="color:var(--savings);">
                 <i class="fa-solid fa-piggy-bank" style="font-size:15px;"></i>
+              </button>
+              <button class="btn-icon" onclick="openScheduledPaymentForSelected()" aria-label="Scheduled payment from income" style="color:var(--danger);" title="Scheduled Payment — expense charged on this date">
+                <i class="fa-solid fa-hand-holding-dollar" style="font-size:15px;"></i>
               </button>
             </div>
           </div>
@@ -727,7 +865,11 @@
       </div>
       <div>
         <label style="font-size:12px;color:var(--fg-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:6px;">Date</label>
-        <input type="date" id="expDate" class="input-field" required>
+        <input type="date" id="expDate" class="input-field" required onchange="updateScheduledHint()">
+        <div id="scheduledHint" style="display:none;margin-top:8px;padding:8px 12px;background:rgba(138,133,120,0.1);border:1px dashed var(--border-light);border-radius:8px;font-size:12px;color:var(--fg-muted);">
+          <i class="fa-regular fa-clock" style="margin-right:6px;"></i>
+          This is a future date — the entry will be <strong style="color:var(--fg);">scheduled</strong> and only applied to your balance when the date arrives.
+        </div>
       </div>
       <div>
         <label style="font-size:12px;color:var(--fg-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:6px;">Note (optional)</label>
@@ -756,6 +898,80 @@
   </div>
 </div>
 
+<!-- Savings Goal modal -->
+<div class="modal-overlay" id="goalModal" role="dialog" aria-modal="true" aria-label="Set savings goal">
+  <div class="modal-content">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+      <h3 class="font-display" style="font-size:20px;font-weight:700;"><i class="fa-solid fa-bullseye" style="color:var(--savings);margin-right:8px;"></i>Savings Goal</h3>
+      <button class="btn-icon" onclick="closeModal('goalModal')" aria-label="Close"><i class="fa-solid fa-xmark" style="font-size:18px;"></i></button>
+    </div>
+    <form id="goalForm" onsubmit="handleGoalSubmit(event)" style="display:flex;flex-direction:column;gap:16px;">
+      <div>
+        <label style="font-size:12px;color:var(--fg-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:6px;">Goal Name</label>
+        <input type="text" id="goalNameInput" class="input-field" placeholder="e.g. New car, Vacation fund..." required maxlength="60">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div>
+          <label style="font-size:12px;color:var(--fg-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:6px;">Target Amount</label>
+          <input type="number" id="goalTargetInput" class="input-field" placeholder="0.00" step="0.01" min="0.01" required>
+        </div>
+        <div>
+          <label style="font-size:12px;color:var(--fg-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:6px;">Target Date</label>
+          <input type="date" id="goalDateInput" class="input-field" required>
+        </div>
+      </div>
+      <div>
+        <label style="font-size:12px;color:var(--fg-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:6px;">Monthly Income</label>
+        <input type="number" id="goalIncomeInput" class="input-field" placeholder="Your monthly take-home pay" step="0.01" min="0" required>
+        <div style="font-size:11px;color:var(--fg-muted);margin-top:6px;">Used to check if the required monthly savings is feasible.</div>
+      </div>
+      <div>
+        <label style="font-size:12px;color:var(--fg-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:6px;">Pay Day (day of month)</label>
+        <input type="number" id="goalPaydayInput" class="input-field" placeholder="e.g. 1, 15, 25" min="1" max="31">
+        <div style="font-size:11px;color:var(--fg-muted);margin-top:6px;">Optional — so we know when your income lands each month.</div>
+      </div>
+      <div id="goalPreview" style="padding:14px 16px;background:var(--savings-dim);border:1px solid var(--savings-border);border-radius:10px;display:none;">
+        <div style="font-size:11px;color:var(--savings);text-transform:uppercase;letter-spacing:0.5px;font-weight:600;margin-bottom:6px;">Plan</div>
+        <div id="goalPreviewText" style="font-size:13px;line-height:1.6;"></div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:8px;">
+        <button type="button" class="btn-ghost" onclick="closeModal('goalModal')" style="flex:1;">Cancel</button>
+        <button type="submit" class="btn-primary savings-btn" style="flex:1;">Save Goal</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Reset modal -->
+<div class="modal-overlay" id="resetModal" role="dialog" aria-modal="true" aria-label="Reset ledger">
+  <div class="modal-content">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+      <h3 class="font-display" style="font-size:20px;font-weight:700;"><i class="fa-solid fa-rotate-left" style="color:var(--danger);margin-right:8px;"></i>Reset Ledger</h3>
+      <button class="btn-icon" onclick="closeModal('resetModal')" aria-label="Close"><i class="fa-solid fa-xmark" style="font-size:18px;"></i></button>
+    </div>
+    <div style="padding:12px 14px;background:var(--danger-dim);border:1px solid var(--danger-dim);border-radius:10px;margin-bottom:20px;font-size:13px;color:var(--fg);line-height:1.5;">
+      <i class="fa-solid fa-triangle-exclamation" style="color:var(--danger);margin-right:6px;"></i>
+      This will <strong>delete every entry and your goal</strong>. Enter your current balance and current savings below — they'll be set as your starting point.
+    </div>
+    <form id="resetForm" onsubmit="handleResetSubmit(event)" style="display:flex;flex-direction:column;gap:16px;">
+      <div>
+        <label style="font-size:12px;color:var(--fg-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:6px;">Current Money (available balance)</label>
+        <input type="number" id="resetBalanceInput" class="input-field" placeholder="0.00" step="0.01" min="0" required>
+        <div style="font-size:11px;color:var(--fg-muted);margin-top:6px;">Cash + checking account balance you can spend.</div>
+      </div>
+      <div>
+        <label style="font-size:12px;color:var(--fg-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:6px;">Current Savings</label>
+        <input type="number" id="resetSavingsInput" class="input-field" placeholder="0.00" step="0.01" min="0" required>
+        <div style="font-size:11px;color:var(--fg-muted);margin-top:6px;">Money set aside in a savings account.</div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:8px;">
+        <button type="button" class="btn-ghost" onclick="closeModal('resetModal')" style="flex:1;">Cancel</button>
+        <button type="submit" class="btn-primary" style="flex:1;background:var(--danger);color:#fff;">Reset Everything</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <script>
   const BIN_ID = '69ce63be36566621a871baf7';
   const API_KEY = '$2a$10$g76znpXn9nA3ft1eFt2Tmu2u0g7Z0nzl0cmhoWqX25/yKBAzvIL/C';
@@ -763,6 +979,7 @@
   const API_PUT_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
 
   let expenses = [];
+  let goal = null; // { name, target, date, monthlyIncome, payday, createdAt }
   let currentYear, currentMonth;
   let selectedDate = null;
   let deleteTargetId = null;
@@ -792,32 +1009,72 @@
     other: { label: 'Other Income', icon: 'fa-ellipsis', class: 'cat-other' }
   };
 
-  const SAVINGS_CATEGORY = { label: 'Savings', icon: 'fa-piggy-bank', class: 'cat-savings' };
+  const SAVINGS_CATEGORY = { label: 'Savings Deposit', icon: 'fa-piggy-bank', class: 'cat-savings' };
 
   function getCategories(type) {
     if (type === 'savings') return { savings: SAVINGS_CATEGORY };
     return type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
   }
 
+  // ─── Helpers for date/scheduling ────────────────────────────
+  function todayStr() {
+    const t = new Date();
+    return formatDateStr(t.getFullYear(), t.getMonth(), t.getDate());
+  }
+  function isScheduled(entry) {
+    // An entry is "scheduled" (not yet active) if its date is strictly in the future.
+    return entry && entry.date > todayStr();
+  }
+  // Active entries = entries that have actually happened (date <= today).
+  // These are the only ones that count toward balances/stats.
+  function activeEntries() {
+    const today = todayStr();
+    return expenses.filter(e => e.date <= today);
+  }
+
   // ═══════════════════════════════════════════
   // DATA MIGRATION — converts old savings format
   // ═══════════════════════════════════════════
-  function migrateData(data) {
+  // Accepts either a bare array (old format) or { entries, goal } (new format).
+  // Returns { entries, goal, migrated }.
+  function migrateData(raw) {
     let migrated = false;
-    const cleaned = data.filter(e => e.description !== 'Starting balance');
+    let rawEntries, rawGoal = null;
+
+    if (Array.isArray(raw)) {
+      rawEntries = raw;
+      migrated = true; // shape change alone counts as a migration-worthy push
+    } else if (raw && typeof raw === 'object') {
+      rawEntries = Array.isArray(raw.entries) ? raw.entries : [];
+      rawGoal = raw.goal || null;
+    } else {
+      rawEntries = [];
+    }
+
+    const cleaned = rawEntries.filter(e => {
+      // Keep explicit reset markers; drop legacy unnamed starting-balance entries
+      if (e.keepMe) return true;
+      return e.description !== 'Starting balance';
+    });
     const result = cleaned.map(e => {
-      // Old format: type:'expense' + category:'savings'
+      // Old format: type:'expense' + category:'savings' → savings deposit
       if (e.type === 'expense' && e.category === 'savings') {
         migrated = true;
         return { ...e, type: 'savings', category: 'savings' };
       }
+      // Legacy savings_withdraw entries → convert to regular expense (Scheduled Payment style)
+      if (e.type === 'savings_withdraw') {
+        migrated = true;
+        return { ...e, type: 'expense', category: 'other' };
+      }
       // Ensure every entry has a valid type
-      if (e.type !== 'expense' && e.type !== 'income' && e.type !== 'savings') {
+      const validTypes = ['expense', 'income', 'savings'];
+      if (!validTypes.includes(e.type)) {
         e.type = 'expense';
       }
       return e;
     });
-    return { data: result, migrated };
+    return { entries: result, goal: rawGoal, migrated };
   }
 
   // ═══════════════════════════════════════════
@@ -872,26 +1129,24 @@
       const json = await res.json();
       const raw = json.record;
 
-      if (Array.isArray(raw)) {
-        const { data: migrated, migrated: didMigrate } = migrateData(raw);
-        expenses = migrated;
-        needsMigrationPush = didMigrate;
-      } else {
-        expenses = [];
-      }
+      const { entries, goal: fetchedGoal, migrated: didMigrate } = migrateData(raw);
+      expenses = entries;
+      goal = fetchedGoal;
+      needsMigrationPush = didMigrate;
       updateSyncUI('synced');
 
-      // If old-format savings entries were found, push the migrated data back
+      // If old-format entries were found OR shape changed, push the migrated payload back
       if (needsMigrationPush) {
-        console.log('Migrated old savings entries — pushing updated data...');
+        console.log('Migrated data — pushing updated payload...');
         await pushExpenses(true);
       }
     } catch (err) {
       console.error('Fetch error:', err.message);
       updateSyncUI('error', err.message);
-      expenses = JSON.parse(localStorage.getItem('ledger_expenses') || '[]');
-      const { data: migrated } = migrateData(expenses);
-      expenses = migrated;
+      const stored = JSON.parse(localStorage.getItem('ledger_expenses') || 'null');
+      const { entries, goal: fetchedGoal } = migrateData(stored);
+      expenses = entries;
+      goal = fetchedGoal;
     }
   }
 
@@ -901,16 +1156,26 @@
     try {
       if (!silent) updateSyncUI('syncing');
 
-      // Clean data before sending — ensure valid structure
-      const cleanData = expenses.map(e => ({
-        id: e.id || generateId(),
-        description: (e.description || '').substring(0, 100),
-        amount: parseFloat(e.amount) || 0,
-        category: e.category || 'other',
-        date: e.date || new Date().toISOString().split('T')[0],
-        note: (e.note || '').substring(0, 200),
-        type: (e.type === 'savings' || e.type === 'income') ? e.type : 'expense'
-      }));
+      // Clean entries before sending — ensure valid structure
+      const cleanEntries = expenses.map(e => {
+        const out = {
+          id: e.id || generateId(),
+          description: (e.description || '').substring(0, 100),
+          amount: parseFloat(e.amount) || 0,
+          category: e.category || 'other',
+          date: e.date || new Date().toISOString().split('T')[0],
+          note: (e.note || '').substring(0, 200),
+          type: ['savings', 'income'].includes(e.type) ? e.type : 'expense'
+        };
+        if (e.keepMe) out.keepMe = true;
+        return out;
+      });
+
+      const payload = {
+        entries: cleanEntries,
+        goal: goal || null,
+        version: 2
+      };
 
       const res = await fetchWithRetry(API_PUT_URL, {
         method: 'PUT',
@@ -918,14 +1183,14 @@
           'Content-Type': 'application/json',
           'X-Master-Key': API_KEY
         },
-        body: JSON.stringify(cleanData)
+        body: JSON.stringify(payload)
       });
 
       const result = await res.json();
       console.log('Push success:', result);
 
       updateSyncUI('synced');
-      localStorage.setItem('ledger_expenses', JSON.stringify(cleanData));
+      localStorage.setItem('ledger_expenses', JSON.stringify(payload));
 
       if (!silent) {
         // No toast on success — keep it clean
@@ -933,7 +1198,7 @@
     } catch (err) {
       console.error('Push error:', err.message);
       updateSyncUI('error', err.message);
-      localStorage.setItem('ledger_expenses', JSON.stringify(expenses));
+      localStorage.setItem('ledger_expenses', JSON.stringify({ entries: expenses, goal, version: 2 }));
       if (!silent) {
         showToast('Sync failed: ' + err.message.substring(0, 80), 'warning');
       }
@@ -953,21 +1218,16 @@
       const json = await res.json();
       const raw = json.record;
 
-      if (Array.isArray(raw)) {
-        const { data: migrated } = migrateData(raw);
-        // Merge: keep local changes that are newer
-        const serverMap = new Map(migrated.map(e => [e.id, e]));
-        const localMap = new Map(expenses.map(e => [e.id, e]));
-        // Server wins for IDs that exist on both sides only if server is newer
-        // But for simplicity, we merge by taking all server entries + local entries not on server
-        const merged = [...migrated];
-        expenses.forEach(local => {
-          if (!serverMap.has(local.id)) {
-            merged.push(local);
-          }
-        });
-        expenses = merged;
-      }
+      const { entries, goal: fetchedGoal } = migrateData(raw);
+      // Merge: keep local entries not on server
+      const serverMap = new Map(entries.map(e => [e.id, e]));
+      const merged = [...entries];
+      expenses.forEach(local => {
+        if (!serverMap.has(local.id)) merged.push(local);
+      });
+      expenses = merged;
+      // For the goal: prefer local if we have one, else server's
+      if (!goal && fetchedGoal) goal = fetchedGoal;
 
       await pushExpenses(true);
       updateSyncUI('synced');
@@ -998,6 +1258,7 @@
     renderCalendar();
     renderStats();
     renderCategoryBreakdown();
+    renderGoal();
     if (selectedDate) renderDayExpenses(selectedDate);
   }
 
@@ -1051,18 +1312,40 @@
 
     let dotsHtml = '', totalHtml = '';
     if (dayEntries && dayEntries.length > 0) {
-      // Savings is neutral in the day total
-      const total = dayEntries.reduce((s, e) => s + (e.type === 'income' ? e.amount : e.type === 'savings' ? 0 : -e.amount), 0);
-      const hasExp = dayEntries.some(e => e.type === 'expense');
-      const hasSav = dayEntries.some(e => e.type === 'savings');
-      const hasInc = dayEntries.some(e => e.type === 'income');
+      const today = todayStr();
+      const activeDay = dayEntries.filter(e => e.date <= today);
+      const scheduledDay = dayEntries.filter(e => e.date > today);
+
+      // Day total reflects active income - expenses only. Savings is tracked separately.
+      const total = activeDay.reduce((s, e) => {
+        if (e.type === 'income') return s + e.amount;
+        if (e.type === 'expense') return s - e.amount;
+        return s; // savings deposit and withdrawal are both day-total-neutral
+      }, 0);
+
+      const hasExp = activeDay.some(e => e.type === 'expense');
+      const hasSav = activeDay.some(e => e.type === 'savings');
+      const hasInc = activeDay.some(e => e.type === 'income');
+      const hasSchedExp = scheduledDay.some(e => e.type === 'expense');
+      const hasSchedSav = scheduledDay.some(e => e.type === 'savings');
+      const hasSchedInc = scheduledDay.some(e => e.type === 'income');
+
       let dots = '';
-      if (hasExp) dots += '<span class="dot" style="background:var(--danger);opacity:0.7;"></span>';
+      if (hasExp) dots += '<span class="dot dot-expense" style="background:var(--danger);opacity:0.7;"></span>';
       if (hasSav) dots += '<span class="dot" style="background:var(--savings);opacity:0.8;"></span>';
-      if (hasInc) dots += '<span class="dot" style="background:var(--income);opacity:0.7;"></span>';
+      if (hasInc) dots += '<span class="dot dot-income" style="background:var(--income);opacity:0.7;"></span>';
+      if (hasSchedExp) dots += '<span class="dot scheduled dot-expense"></span>';
+      if (hasSchedSav) dots += '<span class="dot scheduled" style="border-color:var(--savings);"></span>';
+      if (hasSchedInc) dots += '<span class="dot scheduled dot-income"></span>';
       if (dots) dotsHtml = `<div class="expense-dots">${dots}</div>`;
-      const cls = total > 0 ? 'positive' : total < 0 ? 'negative' : '';
-      totalHtml = `<span class="day-total ${cls}">${total >= 0 ? '+' : '-'}$${Math.abs(total).toFixed(0)}</span>`;
+
+      if (activeDay.length > 0) {
+        const cls = total > 0 ? 'positive' : total < 0 ? 'negative' : '';
+        totalHtml = `<span class="day-total ${cls}">${total >= 0 ? '+' : '-'}$${Math.abs(total).toFixed(0)}</span>`;
+      } else if (scheduledDay.length > 0) {
+        // Show a muted indicator that something is pending for this day
+        totalHtml = `<span class="day-total" style="color:var(--fg-muted);font-style:italic;">pending</span>`;
+      }
     }
     return `<div class="${classes}" onclick="selectDay('${dateStr}')" tabindex="0" role="button" aria-label="${dateStr}${dayEntries ? ', ' + dayEntries.length + ' entries' : ''}">
       <span class="day-num">${dayNum}</span>${dotsHtml}${totalHtml}
@@ -1105,7 +1388,9 @@
     filterTabs.style.display = 'flex';
 
     let dayEntries = expenses.filter(e => e.date === dateStr).sort((a, b) => (b.id || 0) - (a.id || 0));
-    if (dayFilter !== 'all') dayEntries = dayEntries.filter(e => e.type === dayFilter);
+    if (dayFilter !== 'all') {
+      dayEntries = dayEntries.filter(e => e.type === dayFilter);
+    }
 
     if (dayEntries.length === 0) {
       const msgs = { all: 'No entries on this day', expense: 'No expenses on this day', income: 'No income on this day', savings: 'No savings on this day' };
@@ -1119,9 +1404,17 @@
     const totalExpense = allDay.filter(e => e.type === 'expense').reduce((s, e) => s + e.amount, 0);
     const totalIncome = allDay.filter(e => e.type === 'income').reduce((s, e) => s + e.amount, 0);
     const totalSavings = allDay.filter(e => e.type === 'savings').reduce((s, e) => s + e.amount, 0);
-    const remaining = totalIncome - totalExpense - totalSavings;
+    // Day Net = income - expenses. Savings tracked separately.
+    const remaining = totalIncome - totalExpense;
 
-    let html = `<div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;">
+    const isFutureDay = dateStr > todayStr();
+    const scheduledBanner = isFutureDay
+      ? `<div style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:rgba(138,133,120,0.1);border:1px dashed var(--border-light);border-radius:10px;margin-bottom:12px;font-size:12px;color:var(--fg-muted);">
+          <i class="fa-regular fa-clock"></i><span>This day is in the future. Entries here are <strong style="color:var(--fg);">scheduled</strong> and will affect your balance on the day.</span>
+        </div>`
+      : '';
+
+    let html = scheduledBanner + `<div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;">
       <div style="flex:1;min-width:60px;background:var(--danger-dim);border-radius:8px;padding:8px 10px;text-align:center;">
         <div style="font-size:9px;color:var(--danger);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Out</div>
         <div style="font-size:13px;font-weight:700;color:var(--danger);font-family:'Space Grotesk',sans-serif;">-$${totalExpense.toFixed(0)}</div>
@@ -1137,11 +1430,11 @@
     </div>
     <div style="display:flex;justify-content:center;margin-bottom:14px;">
       <div style="background:${remaining >= 0 ? 'var(--income-dim)' : 'var(--danger-dim)'};border-radius:8px;padding:5px 16px;text-align:center;">
-        <span style="font-size:12px;font-weight:700;font-family:'Space Grotesk',sans-serif;" class="${remaining >= 0 ? 'net-positive' : 'net-negative'}">Left: ${remaining >= 0 ? '+' : '-'}$${Math.abs(remaining).toFixed(2)}</span>
+        <span style="font-size:12px;font-weight:700;font-family:'Space Grotesk',sans-serif;" class="${remaining >= 0 ? 'net-positive' : 'net-negative'}">Net: ${remaining >= 0 ? '+' : '-'}$${Math.abs(remaining).toFixed(2)}</span>
       </div>
     </div>`;
 
-    // Savings box
+    // Savings box (deposits only)
     const savingsEntries = dayEntries.filter(e => e.type === 'savings');
     if (savingsEntries.length > 0 && (dayFilter === 'all' || dayFilter === 'savings')) {
       const daySavTotal = savingsEntries.reduce((s, e) => s + e.amount, 0);
@@ -1156,16 +1449,19 @@
               <div style="font-size:10px;color:var(--fg-muted);">${savingsEntries.length} entr${savingsEntries.length > 1 ? 'ies' : 'y'}</div>
             </div>
           </div>
-          <div style="font-size:16px;font-weight:700;color:var(--savings);font-family:'Space Grotesk',sans-serif;">$${daySavTotal.toFixed(2)}</div>
+          <div style="font-size:16px;font-weight:700;color:var(--savings);font-family:'Space Grotesk',sans-serif;">+$${daySavTotal.toFixed(2)}</div>
         </div>
         <div style="display:flex;flex-direction:column;gap:6px;">`;
       savingsEntries.forEach(entry => {
-        html += `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:rgba(0,0,0,0.2);border-radius:8px;">
+        const scheduled = isScheduled(entry);
+        html += `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:rgba(0,0,0,0.2);border-radius:8px;${scheduled ? 'opacity:0.7;border:1px dashed var(--border-light);' : ''}">
+          <i class="fa-solid fa-piggy-bank" style="color:var(--savings);font-size:11px;"></i>
           <div style="flex:1;min-width:0;">
             <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(entry.description)}${entry.note ? ' <span style="color:var(--fg-muted);font-weight:400;">— ' + escapeHtml(entry.note) + '</span>' : ''}</div>
+            ${scheduled ? '<div style="margin-top:3px;"><span class="scheduled-badge"><i class="fa-regular fa-clock" style="font-size:9px;"></i>Scheduled</span></div>' : ''}
           </div>
           <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;">
-            <span style="font-size:13px;font-weight:700;color:var(--savings);font-family:'Space Grotesk',sans-serif;">$${entry.amount.toFixed(2)}</span>
+            <span style="font-size:13px;font-weight:700;color:var(--savings);font-family:'Space Grotesk',sans-serif;">+$${entry.amount.toFixed(2)}</span>
             <button class="btn-icon" onclick="openEditModal(${entry.id})" aria-label="Edit" style="padding:4px;"><i class="fa-solid fa-pen" style="font-size:10px;"></i></button>
             <button class="btn-icon danger" onclick="openDeleteModal(${entry.id})" aria-label="Delete" style="padding:4px;"><i class="fa-solid fa-trash-can" style="font-size:10px;"></i></button>
           </div>
@@ -1174,7 +1470,7 @@
       html += `</div></div>`;
     }
 
-    // Other transactions
+    // Other transactions (expense / income)
     const otherEntries = dayEntries.filter(e => e.type !== 'savings');
     if (otherEntries.length > 0) {
       html += '<div style="display:flex;flex-direction:column;gap:8px;">';
@@ -1182,11 +1478,13 @@
         const cats = getCategories(entry.type);
         const cat = cats[entry.category] || cats.other;
         const isIncome = entry.type === 'income';
-        html += `<div class="expense-item">
+        const scheduled = isScheduled(entry);
+        html += `<div class="expense-item${scheduled ? ' scheduled' : ''}">
           <div class="cat-icon ${cat.class}" style="color:#0f0f0f;"><i class="fa-solid ${cat.icon}"></i></div>
           <div style="flex:1;min-width:0;">
             <div style="font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(entry.description)}</div>
             <div style="font-size:11px;color:var(--fg-muted);">${cat.label}${entry.note ? ' — ' + escapeHtml(entry.note) : ''}</div>
+            ${scheduled ? '<div style="margin-top:4px;"><span class="scheduled-badge"><i class="fa-regular fa-clock" style="font-size:9px;"></i>Scheduled</span></div>' : ''}
           </div>
           <div style="text-align:right;flex-shrink:0;display:flex;align-items:center;gap:6px;">
             <span style="font-size:14px;font-weight:700;font-family:'Space Grotesk',sans-serif;" class="${isIncome ? 'amount-income' : 'amount-expense'}">${isIncome ? '+' : '-'}$${entry.amount.toFixed(2)}</span>
@@ -1202,17 +1500,22 @@
   }
 
   // ═══════════════════════════════════════════
-  // STATS
+  // STATS — scheduled (future-dated) entries are excluded from totals
   // ═══════════════════════════════════════════
   function renderStats() {
     const monthExps = getMonthExpenses();
-    const totalExpense = monthExps.filter(e => e.type === 'expense').reduce((s, e) => s + e.amount, 0);
-    const totalIncome = monthExps.filter(e => e.type === 'income').reduce((s, e) => s + e.amount, 0);
-    const totalSavings = monthExps.filter(e => e.type === 'savings').reduce((s, e) => s + e.amount, 0);
-    const remaining = totalIncome - totalExpense - totalSavings;
+    const today = todayStr();
+    // Only active (already-happened) entries count toward totals
+    const active = monthExps.filter(e => e.date <= today);
+
+    const totalExpense = active.filter(e => e.type === 'expense').reduce((s, e) => s + e.amount, 0);
+    const totalIncome = active.filter(e => e.type === 'income').reduce((s, e) => s + e.amount, 0);
+    const netSavings = active.filter(e => e.type === 'savings').reduce((s, e) => s + e.amount, 0);
+    // Remaining = income - expenses. Savings is a separate bucket and does not affect it.
+    const remaining = totalIncome - totalExpense;
 
     const dayTotals = {};
-    monthExps.filter(e => e.type === 'expense').forEach(e => {
+    active.filter(e => e.type === 'expense').forEach(e => {
       dayTotals[e.date] = (dayTotals[e.date] || 0) + e.amount;
     });
     const daysWithExp = Object.keys(dayTotals).length;
@@ -1220,7 +1523,7 @@
 
     document.getElementById('statExpense').textContent = `$${totalExpense.toFixed(2)}`;
     document.getElementById('statIncome').textContent = `$${totalIncome.toFixed(2)}`;
-    document.getElementById('statSaved').textContent = `$${totalSavings.toFixed(2)}`;
+    document.getElementById('statSaved').textContent = `$${netSavings.toFixed(2)}`;
 
     const netEl = document.getElementById('statNet');
     netEl.textContent = `${remaining >= 0 ? '+' : '-'}$${Math.abs(remaining).toFixed(2)}`;
@@ -1231,6 +1534,7 @@
     else if (remaining < 0) { netEl.classList.add('net-negative'); netEl.style.color = ''; }
     else { netEl.style.color = 'var(--fg)'; }
 
+    // Count all entries (active + scheduled) so scheduled ones remain visible
     document.getElementById('statCount').textContent = monthExps.length;
     document.getElementById('statAvg').textContent = `$${avg.toFixed(2)}`;
   }
@@ -1349,6 +1653,8 @@
     const btn = document.getElementById('modalSubmitBtn');
     btn.className = 'btn-primary';
     btn.style.flex = '1';
+    btn.style.background = '';
+    btn.style.color = '';
     if (currentType === 'income') btn.classList.add('income-btn');
     else if (currentType === 'savings') btn.classList.add('savings-btn');
   }
@@ -1356,13 +1662,13 @@
   function populateCategories() {
     const select = document.getElementById('expCategory');
     const wrap = document.getElementById('categoryWrap');
-    const cats = getCategories(currentType);
 
     if (currentType === 'savings') {
       wrap.style.display = 'none';
-	  select.innerHTML = '<option value="savings">Savings</option>';
+      select.innerHTML = '<option value="savings">Savings</option>';
       select.value = 'savings';
     } else {
+      const cats = getCategories(currentType);
       wrap.style.display = '';
       select.innerHTML = Object.entries(cats).map(([key]) => `<option value="${key}">${cats[key].label}</option>`).join('');
     }
@@ -1390,6 +1696,7 @@
     populateCategories();
     const defaultDate = selectedDate || formatDateStr(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
     document.getElementById('expDate').value = defaultDate;
+    updateScheduledHint();
     openModal('addModal');
     setTimeout(() => document.getElementById('expDesc').focus(), 200);
   }
@@ -1398,7 +1705,20 @@
     if (selectedDate) {
       openAddModal(type);
       document.getElementById('expDate').value = selectedDate;
+      updateScheduledHint();
     }
+  }
+
+  // Scheduled Payment = a regular expense on a specific date. It charges against
+  // your income/Remaining on that date only. If the date is in the future it'll
+  // sit as "scheduled" until the day arrives (standard expense behavior).
+  function openScheduledPaymentForSelected() {
+    if (!selectedDate) return;
+    openAddModal('expense');
+    document.getElementById('expDate').value = selectedDate;
+    document.getElementById('modalTitle').innerHTML = '<i class="fa-solid fa-hand-holding-dollar" style="color:var(--danger);margin-right:8px;"></i>Scheduled Payment';
+    document.getElementById('modalSubmitBtn').textContent = 'Add Payment';
+    updateScheduledHint();
   }
 
   function openEditModal(id) {
@@ -1407,7 +1727,7 @@
     currentType = entry.type || 'expense';
     updateTypeToggle();
     populateCategories();
-    const titles = { expense: 'Edit Expense', income: 'Edit Income', savings: 'Edit Savings' };
+    const titles = { expense: 'Edit Expense', income: 'Edit Income', savings: 'Edit Savings Deposit' };
     document.getElementById('modalTitle').textContent = titles[currentType] || 'Edit Entry';
     document.getElementById('modalSubmitBtn').textContent = 'Save Changes';
     document.getElementById('editId').value = id;
@@ -1416,8 +1736,17 @@
     document.getElementById('expCategory').value = entry.category || 'savings';
     document.getElementById('expDate').value = entry.date;
     document.getElementById('expNote').value = entry.note || '';
+    updateScheduledHint();
     openModal('addModal');
     setTimeout(() => document.getElementById('expDesc').focus(), 200);
+  }
+
+  function updateScheduledHint() {
+    const dateInput = document.getElementById('expDate');
+    const hint = document.getElementById('scheduledHint');
+    if (dateInput && hint) {
+      hint.style.display = dateInput.value && dateInput.value > todayStr() ? 'block' : 'none';
+    }
   }
 
   async function handleFormSubmit(e) {
@@ -1447,8 +1776,9 @@
       }
     } else {
       expenses.push({ id: generateId(), description: desc, amount, category, date, note, type: currentType });
-      const msgs = { expense: 'Expense added', income: 'Income added', savings: 'Savings added' };
-      showToast(msgs[currentType] + ' successfully', 'success');
+      const msgs = { expense: 'Expense added', income: 'Income added', savings: 'Savings deposit added' };
+      const scheduledSuffix = date > todayStr() ? ' (scheduled)' : '';
+      showToast(msgs[currentType] + scheduledSuffix, 'success');
     }
 
     await pushExpenses();
@@ -1508,16 +1838,20 @@
     const monthExps = getMonthExpenses();
     if (monthExps.length === 0) { showToast('No entries to export for this month', 'warning'); return; }
     const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-    let csv = `Ledger — ${monthNames[currentMonth]} ${currentYear}\n\nDate,Type,Description,Category,Amount,Note\n`;
+    let csv = `Ledger — ${monthNames[currentMonth]} ${currentYear}\n\nDate,Type,Status,Description,Category,Amount,Note\n`;
     monthExps.sort((a, b) => (a.date || '').localeCompare(b.date || '')).forEach(e => {
       const cats = getCategories(e.type);
-      const typeLabel = e.type === 'savings' ? 'Savings' : e.type === 'income' ? 'Income' : 'Expense';
-      csv += `${e.date},${typeLabel},"${e.description}",${cats[e.category]?.label || 'Savings'},${e.amount.toFixed(2)},"${e.note || ''}"\n`;
+      const typeLabel = e.type === 'savings' ? 'Savings Deposit'
+        : e.type === 'income' ? 'Income' : 'Expense';
+      const status = isScheduled(e) ? 'Scheduled' : 'Active';
+      const catLabel = e.type === 'savings' ? 'Savings' : (cats[e.category]?.label || 'Other');
+      csv += `${e.date},${typeLabel},${status},"${e.description}",${catLabel},${e.amount.toFixed(2)},"${e.note || ''}"\n`;
     });
-    const totalExpense = monthExps.filter(e => e.type === 'expense').reduce((s, e) => s + e.amount, 0);
-    const totalIncome = monthExps.filter(e => e.type === 'income').reduce((s, e) => s + e.amount, 0);
-    const totalSavings = monthExps.filter(e => e.type === 'savings').reduce((s, e) => s + e.amount, 0);
-    csv += `\nTotal Expenses,,,"${totalExpense.toFixed(2)}"\nTotal Income,,,"${totalIncome.toFixed(2)}"\nTotal Savings,,,"${totalSavings.toFixed(2)}"\nRemaining,,,"${(totalIncome - totalExpense - totalSavings).toFixed(2)}"\n`;
+    const active = monthExps.filter(e => !isScheduled(e));
+    const totalExpense = active.filter(e => e.type === 'expense').reduce((s, e) => s + e.amount, 0);
+    const totalIncome = active.filter(e => e.type === 'income').reduce((s, e) => s + e.amount, 0);
+    const totalSavings = active.filter(e => e.type === 'savings').reduce((s, e) => s + e.amount, 0);
+    csv += `\nTotal Expenses,,,,,"${totalExpense.toFixed(2)}"\nTotal Income,,,,,"${totalIncome.toFixed(2)}"\nTotal Savings,,,,,"${totalSavings.toFixed(2)}"\nRemaining,,,,,"${(totalIncome - totalExpense).toFixed(2)}"\n`;
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -1529,10 +1863,223 @@
   }
 
   // ═══════════════════════════════════════════
+  // SAVINGS GOAL
+  // ═══════════════════════════════════════════
+  // Total saved right now = all-time savings deposits (active only)
+  function getTotalSavings() {
+    const today = todayStr();
+    return expenses.reduce((s, e) => {
+      if (e.date > today) return s; // scheduled — not active yet
+      if (e.type === 'savings') return s + e.amount;
+      return s;
+    }, 0);
+  }
+
+  // Months between today and the target date (rounded up, min 1 to avoid div-by-zero)
+  function monthsUntil(targetDate) {
+    const t = new Date();
+    t.setHours(0, 0, 0, 0);
+    const parts = targetDate.split('-');
+    const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+    d.setHours(0, 0, 0, 0);
+    if (d <= t) return 0;
+    const msPerMonth = 1000 * 60 * 60 * 24 * 30.4375; // average
+    return Math.max(1, Math.ceil((d - t) / msPerMonth));
+  }
+
+  function openGoalModal() {
+    if (goal) {
+      document.getElementById('goalNameInput').value = goal.name || '';
+      document.getElementById('goalTargetInput').value = goal.target || '';
+      document.getElementById('goalDateInput').value = goal.date || '';
+      document.getElementById('goalIncomeInput').value = goal.monthlyIncome || '';
+      document.getElementById('goalPaydayInput').value = goal.payday || '';
+    } else {
+      document.getElementById('goalForm').reset();
+    }
+    updateGoalPreview();
+    ['goalTargetInput', 'goalDateInput', 'goalIncomeInput'].forEach(id => {
+      document.getElementById(id).addEventListener('input', updateGoalPreview);
+    });
+    openModal('goalModal');
+  }
+
+  function updateGoalPreview() {
+    const target = parseFloat(document.getElementById('goalTargetInput').value);
+    const date = document.getElementById('goalDateInput').value;
+    const income = parseFloat(document.getElementById('goalIncomeInput').value);
+    const preview = document.getElementById('goalPreview');
+    const previewText = document.getElementById('goalPreviewText');
+    if (isNaN(target) || !date || target <= 0) { preview.style.display = 'none'; return; }
+
+    const already = getTotalSavings();
+    const needed = Math.max(0, target - already);
+    const months = monthsUntil(date);
+    if (months === 0) {
+      previewText.innerHTML = `<strong>Target date is today or past.</strong> Please pick a future date.`;
+      preview.style.display = 'block';
+      return;
+    }
+    const perMonth = needed / months;
+    let feasibility = '';
+    if (!isNaN(income) && income > 0) {
+      const pct = (perMonth / income * 100);
+      if (pct > 80) feasibility = `<br><span style="color:var(--danger);">⚠ That's ${pct.toFixed(0)}% of your monthly income — unrealistic.</span>`;
+      else if (pct > 50) feasibility = `<br><span style="color:var(--accent);">⚠ That's ${pct.toFixed(0)}% of your monthly income — tight but possible.</span>`;
+      else feasibility = `<br><span style="color:var(--income);">✓ That's ${pct.toFixed(0)}% of your monthly income — manageable.</span>`;
+    }
+    previewText.innerHTML = `You already have <strong>$${already.toFixed(2)}</strong> saved. To reach <strong>$${target.toFixed(2)}</strong> in <strong>${months}</strong> month${months === 1 ? '' : 's'}, save <strong style="color:var(--savings);">$${perMonth.toFixed(2)}/month</strong>.${feasibility}`;
+    preview.style.display = 'block';
+  }
+
+  async function handleGoalSubmit(e) {
+    e.preventDefault();
+    const name = document.getElementById('goalNameInput').value.trim();
+    const target = parseFloat(document.getElementById('goalTargetInput').value);
+    const date = document.getElementById('goalDateInput').value;
+    const monthlyIncome = parseFloat(document.getElementById('goalIncomeInput').value);
+    const paydayRaw = document.getElementById('goalPaydayInput').value;
+    const payday = paydayRaw ? parseInt(paydayRaw) : null;
+
+    if (!name || isNaN(target) || target <= 0 || !date || isNaN(monthlyIncome) || monthlyIncome < 0) {
+      showToast('Please fill in all required fields', 'warning');
+      return;
+    }
+    if (date <= todayStr()) {
+      showToast('Target date must be in the future', 'warning');
+      return;
+    }
+
+    goal = {
+      name, target, date, monthlyIncome, payday,
+      createdAt: goal?.createdAt || Date.now()
+    };
+    await pushExpenses();
+    closeModal('goalModal');
+    showToast('Goal saved', 'success');
+    renderAll();
+  }
+
+  async function clearGoal() {
+    if (!goal) return;
+    if (!confirm(`Clear your "${goal.name}" goal?`)) return;
+    goal = null;
+    await pushExpenses();
+    showToast('Goal cleared', 'info');
+    renderAll();
+  }
+
+  function renderGoal() {
+    const card = document.getElementById('goalCard');
+    if (!goal) { card.style.display = 'none'; return; }
+    card.style.display = '';
+
+    const saved = getTotalSavings();
+    const target = goal.target || 0;
+    const pct = target > 0 ? Math.min(100, Math.max(0, saved / target * 100)) : 0;
+    const months = monthsUntil(goal.date);
+    const needed = Math.max(0, target - saved);
+    const perMonth = months > 0 ? needed / months : 0;
+
+    document.getElementById('goalName').textContent = goal.name;
+    document.getElementById('goalTarget').textContent = `$${target.toFixed(2)}`;
+    const parts = goal.date.split('-');
+    const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+    document.getElementById('goalDate').textContent = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    document.getElementById('goalIncome').textContent = `$${(goal.monthlyIncome || 0).toFixed(2)}`;
+    document.getElementById('goalMonthly').textContent = `$${perMonth.toFixed(2)}`;
+    document.getElementById('goalMonths').textContent = months === 0 ? 'Due' : `${months}`;
+
+    const statusEl = document.getElementById('goalStatus');
+    if (saved >= target) {
+      statusEl.textContent = '🎉 Reached';
+      statusEl.style.color = 'var(--income)';
+    } else if (months === 0) {
+      statusEl.textContent = 'Overdue';
+      statusEl.style.color = 'var(--danger)';
+    } else if (goal.monthlyIncome > 0 && perMonth / goal.monthlyIncome > 0.8) {
+      statusEl.textContent = 'Unrealistic';
+      statusEl.style.color = 'var(--danger)';
+    } else if (goal.monthlyIncome > 0 && perMonth / goal.monthlyIncome > 0.5) {
+      statusEl.textContent = 'Tight';
+      statusEl.style.color = 'var(--accent)';
+    } else {
+      statusEl.textContent = 'On track';
+      statusEl.style.color = 'var(--income)';
+    }
+
+    document.getElementById('goalProgressFill').style.width = `${pct}%`;
+    document.getElementById('goalProgressText').textContent = `$${saved.toFixed(2)} of $${target.toFixed(2)}`;
+    document.getElementById('goalProgressPct').textContent = `${pct.toFixed(1)}%`;
+  }
+
+  // ═══════════════════════════════════════════
+  // RESET
+  // ═══════════════════════════════════════════
+  function openResetModal() {
+    document.getElementById('resetForm').reset();
+    openModal('resetModal');
+  }
+
+  async function handleResetSubmit(e) {
+    e.preventDefault();
+    const balance = parseFloat(document.getElementById('resetBalanceInput').value);
+    const savings = parseFloat(document.getElementById('resetSavingsInput').value);
+    if (isNaN(balance) || balance < 0 || isNaN(savings) || savings < 0) {
+      showToast('Please enter valid amounts', 'warning');
+      return;
+    }
+
+    const today = todayStr();
+    expenses = [];
+    goal = null;
+
+    if (balance > 0) {
+      expenses.push({
+        id: generateId(),
+        description: 'Starting balance',
+        amount: balance,
+        category: 'other',
+        date: today,
+        note: 'Ledger reset',
+        type: 'income',
+        keepMe: true
+      });
+    }
+    if (savings > 0) {
+      expenses.push({
+        id: generateId() + 1,
+        description: 'Starting savings',
+        amount: savings,
+        category: 'savings',
+        date: today,
+        note: 'Ledger reset',
+        type: 'savings',
+        keepMe: true
+      });
+    }
+
+    await pushExpenses();
+    closeModal('resetModal');
+    selectedDate = null;
+    resetSidebar();
+    const now = new Date();
+    currentYear = now.getFullYear();
+    currentMonth = now.getMonth();
+    renderAll();
+    showToast('Ledger reset — starting fresh', 'success');
+  }
+
+  // ═══════════════════════════════════════════
   // KEYBOARD & EVENTS
   // ═══════════════════════════════════════════
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') { closeModal('addModal'); closeModal('deleteModal'); }
+    if (e.key === 'Escape') {
+      closeModal('addModal');
+      closeModal('deleteModal');
+      closeModal('goalModal');
+      closeModal('resetModal');
+    }
   });
 
   document.querySelectorAll('.modal-overlay').forEach(overlay => {
