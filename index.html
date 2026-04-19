@@ -494,6 +494,29 @@
     border-style: dashed;
   }
   .amount-withdraw { color: var(--danger); }
+  .recurring-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 6px;
+    background: rgba(91,155,213,0.15);
+    color: #7ab8e0;
+    border: 1px solid rgba(91,155,213,0.25);
+  }
+  .recurring-rule-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: border-color 0.2s ease;
+  }
+  .recurring-rule-card:hover { border-color: var(--border-light); }
 
   /* Goal card */
   .goal-card {
@@ -628,6 +651,9 @@
           <i class="fa-solid fa-cloud"></i>
           <span>Cloud</span>
         </div>
+        <button class="btn-ghost" onclick="openRecurringModal()" style="padding:8px 14px;font-size:13px;">
+          <i class="fa-solid fa-repeat" style="margin-right:6px;"></i>Recurring
+        </button>
         <button class="btn-ghost" onclick="openGoalModal()" style="padding:8px 14px;font-size:13px;">
           <i class="fa-solid fa-bullseye" style="margin-right:6px;"></i>Goal
         </button>
@@ -972,6 +998,87 @@
   </div>
 </div>
 
+<!-- Recurring rules list modal -->
+<div class="modal-overlay" id="recurringModal" role="dialog" aria-modal="true" aria-label="Recurring payments">
+  <div class="modal-content" style="max-width:560px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+      <h3 class="font-display" style="font-size:20px;font-weight:700;"><i class="fa-solid fa-repeat" style="color:#7ab8e0;margin-right:8px;"></i>Recurring Payments</h3>
+      <button class="btn-icon" onclick="closeModal('recurringModal')" aria-label="Close"><i class="fa-solid fa-xmark" style="font-size:18px;"></i></button>
+    </div>
+    <p style="color:var(--fg-muted);font-size:13px;margin-bottom:16px;line-height:1.5;">Recurring rules generate scheduled expenses automatically every month. Edit or delete individual occurrences from the calendar — the rule itself stays intact.</p>
+    <div id="recurringList" style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;"></div>
+    <button class="btn-primary" onclick="openRuleEditor()" style="width:100%;">
+      <i class="fa-solid fa-plus" style="margin-right:6px;font-size:11px;"></i>New Recurring Payment
+    </button>
+  </div>
+</div>
+
+<!-- Add/Edit recurring rule modal -->
+<div class="modal-overlay" id="ruleEditorModal" role="dialog" aria-modal="true" aria-label="Recurring rule editor">
+  <div class="modal-content">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+      <h3 id="ruleEditorTitle" class="font-display" style="font-size:20px;font-weight:700;">New Recurring Payment</h3>
+      <button class="btn-icon" onclick="closeModal('ruleEditorModal')" aria-label="Close"><i class="fa-solid fa-xmark" style="font-size:18px;"></i></button>
+    </div>
+    <form id="ruleForm" onsubmit="handleRuleSubmit(event)" style="display:flex;flex-direction:column;gap:16px;">
+      <input type="hidden" id="ruleEditId" value="">
+      <div>
+        <label style="font-size:12px;color:var(--fg-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:6px;">Description</label>
+        <input type="text" id="ruleDesc" class="input-field" placeholder="Rent, Netflix, Gym..." required maxlength="100">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div>
+          <label style="font-size:12px;color:var(--fg-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:6px;">Amount</label>
+          <input type="number" id="ruleAmount" class="input-field" placeholder="0.00" step="0.01" min="0.01" required>
+        </div>
+        <div>
+          <label style="font-size:12px;color:var(--fg-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:6px;">Category</label>
+          <select id="ruleCategory" class="input-field" required></select>
+        </div>
+      </div>
+      <div>
+        <label style="font-size:12px;color:var(--fg-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:6px;">Day of month</label>
+        <input type="number" id="ruleDayOfMonth" class="input-field" placeholder="e.g. 1, 15, 28" min="1" max="31" required>
+        <div style="font-size:11px;color:var(--fg-muted);margin-top:6px;">Months that don't have this day (like Feb 30) will use the last day of the month.</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div>
+          <label style="font-size:12px;color:var(--fg-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:6px;">Starts</label>
+          <input type="month" id="ruleStart" class="input-field" required>
+        </div>
+        <div>
+          <label style="font-size:12px;color:var(--fg-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:6px;">Ends (optional)</label>
+          <input type="month" id="ruleEnd" class="input-field" placeholder="Forever">
+        </div>
+      </div>
+      <div>
+        <label style="font-size:12px;color:var(--fg-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:6px;">Note (optional)</label>
+        <input type="text" id="ruleNote" class="input-field" placeholder="Additional details..." maxlength="200">
+      </div>
+      <div style="display:flex;gap:10px;margin-top:8px;">
+        <button type="button" class="btn-ghost" onclick="closeModal('ruleEditorModal')" style="flex:1;">Cancel</button>
+        <button type="submit" class="btn-primary" style="flex:1;" id="ruleSubmitBtn">Save Rule</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Rule delete confirm modal -->
+<div class="modal-overlay" id="ruleDeleteModal" role="dialog" aria-modal="true" aria-label="Delete rule">
+  <div class="modal-content" style="max-width:420px;">
+    <div style="width:56px;height:56px;border-radius:50%;background:var(--danger-dim);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+      <i class="fa-solid fa-repeat" style="font-size:22px;color:var(--danger);"></i>
+    </div>
+    <h3 class="font-display" style="font-size:18px;font-weight:700;margin-bottom:8px;text-align:center;">Delete Recurring Rule</h3>
+    <p id="ruleDeletePrompt" style="color:var(--fg-muted);font-size:14px;margin-bottom:20px;text-align:center;line-height:1.5;"></p>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <button class="btn-primary" onclick="confirmRuleDelete(true)" style="background:var(--danger);color:#fff;">Delete rule + all future entries</button>
+      <button class="btn-ghost" onclick="confirmRuleDelete(false)">Delete rule only (keep entries)</button>
+      <button class="btn-ghost" onclick="closeModal('ruleDeleteModal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <script>
   const BIN_ID = '69ce63be36566621a871baf7';
   const API_KEY = '$2a$10$g76znpXn9nA3ft1eFt2Tmu2u0g7Z0nzl0cmhoWqX25/yKBAzvIL/C';
@@ -980,6 +1087,9 @@
 
   let expenses = [];
   let goal = null; // { name, target, date, monthlyIncome, payday, createdAt }
+  let recurringRules = []; // [{ id, description, amount, category, dayOfMonth, startDate, endDate|null, note, createdAt }]
+  let deletedOccurrences = []; // array of "ruleId:YYYY-MM" keys for occurrences the user deleted
+  let ruleDeleteTargetId = null;
   let currentYear, currentMonth;
   let selectedDate = null;
   let deleteTargetId = null;
@@ -1035,11 +1145,11 @@
   // ═══════════════════════════════════════════
   // DATA MIGRATION — converts old savings format
   // ═══════════════════════════════════════════
-  // Accepts either a bare array (old format) or { entries, goal } (new format).
-  // Returns { entries, goal, migrated }.
+  // Accepts either a bare array (old format) or { entries, goal, recurringRules, deletedOccurrences } (new format).
+  // Returns { entries, goal, recurringRules, deletedOccurrences, migrated }.
   function migrateData(raw) {
     let migrated = false;
-    let rawEntries, rawGoal = null;
+    let rawEntries, rawGoal = null, rawRules = [], rawTombs = [];
 
     if (Array.isArray(raw)) {
       rawEntries = raw;
@@ -1047,6 +1157,8 @@
     } else if (raw && typeof raw === 'object') {
       rawEntries = Array.isArray(raw.entries) ? raw.entries : [];
       rawGoal = raw.goal || null;
+      rawRules = Array.isArray(raw.recurringRules) ? raw.recurringRules : [];
+      rawTombs = Array.isArray(raw.deletedOccurrences) ? raw.deletedOccurrences : [];
     } else {
       rawEntries = [];
     }
@@ -1074,7 +1186,7 @@
       }
       return e;
     });
-    return { entries: result, goal: rawGoal, migrated };
+    return { entries: result, goal: rawGoal, recurringRules: rawRules, deletedOccurrences: rawTombs, migrated };
   }
 
   // ═══════════════════════════════════════════
@@ -1129,24 +1241,32 @@
       const json = await res.json();
       const raw = json.record;
 
-      const { entries, goal: fetchedGoal, migrated: didMigrate } = migrateData(raw);
+      const { entries, goal: fetchedGoal, recurringRules: fetchedRules, deletedOccurrences: fetchedTombs, migrated: didMigrate } = migrateData(raw);
       expenses = entries;
       goal = fetchedGoal;
+      recurringRules = fetchedRules;
+      deletedOccurrences = fetchedTombs;
       needsMigrationPush = didMigrate;
       updateSyncUI('synced');
 
-      // If old-format entries were found OR shape changed, push the migrated payload back
+      // Materialize recurring entries that aren't yet in the store
+      const generated = materializeRecurring();
+      if (generated > 0) needsMigrationPush = true;
+
       if (needsMigrationPush) {
-        console.log('Migrated data — pushing updated payload...');
+        console.log('Migrated/generated data — pushing updated payload...');
         await pushExpenses(true);
       }
     } catch (err) {
       console.error('Fetch error:', err.message);
       updateSyncUI('error', err.message);
       const stored = JSON.parse(localStorage.getItem('ledger_expenses') || 'null');
-      const { entries, goal: fetchedGoal } = migrateData(stored);
+      const { entries, goal: fetchedGoal, recurringRules: fetchedRules, deletedOccurrences: fetchedTombs } = migrateData(stored);
       expenses = entries;
       goal = fetchedGoal;
+      recurringRules = fetchedRules;
+      deletedOccurrences = fetchedTombs;
+      materializeRecurring();
     }
   }
 
@@ -1168,13 +1288,17 @@
           type: ['savings', 'income'].includes(e.type) ? e.type : 'expense'
         };
         if (e.keepMe) out.keepMe = true;
+        if (e.recurringId) out.recurringId = e.recurringId;
+        if (e.detached) out.detached = true;
         return out;
       });
 
       const payload = {
         entries: cleanEntries,
         goal: goal || null,
-        version: 2
+        recurringRules: recurringRules || [],
+        deletedOccurrences: deletedOccurrences || [],
+        version: 3
       };
 
       const res = await fetchWithRetry(API_PUT_URL, {
@@ -1198,7 +1322,7 @@
     } catch (err) {
       console.error('Push error:', err.message);
       updateSyncUI('error', err.message);
-      localStorage.setItem('ledger_expenses', JSON.stringify({ entries: expenses, goal, version: 2 }));
+      localStorage.setItem('ledger_expenses', JSON.stringify({ entries: expenses, goal, recurringRules, deletedOccurrences, version: 3 }));
       if (!silent) {
         showToast('Sync failed: ' + err.message.substring(0, 80), 'warning');
       }
@@ -1218,7 +1342,7 @@
       const json = await res.json();
       const raw = json.record;
 
-      const { entries, goal: fetchedGoal } = migrateData(raw);
+      const { entries, goal: fetchedGoal, recurringRules: fetchedRules, deletedOccurrences: fetchedTombs } = migrateData(raw);
       // Merge: keep local entries not on server
       const serverMap = new Map(entries.map(e => [e.id, e]));
       const merged = [...entries];
@@ -1226,8 +1350,12 @@
         if (!serverMap.has(local.id)) merged.push(local);
       });
       expenses = merged;
-      // For the goal: prefer local if we have one, else server's
+      // For the goal/rules/tombstones: prefer local if we have them, else server's
       if (!goal && fetchedGoal) goal = fetchedGoal;
+      if ((!recurringRules || recurringRules.length === 0) && fetchedRules.length > 0) recurringRules = fetchedRules;
+      // Tombstones: union of both, to preserve all deletions
+      const tombSet = new Set([...(deletedOccurrences || []), ...fetchedTombs]);
+      deletedOccurrences = [...tombSet];
 
       await pushExpenses(true);
       updateSyncUI('synced');
@@ -1479,12 +1607,16 @@
         const cat = cats[entry.category] || cats.other;
         const isIncome = entry.type === 'income';
         const scheduled = isScheduled(entry);
+        const isRecurring = !!entry.recurringId && !entry.detached;
+        const badges = [];
+        if (scheduled) badges.push('<span class="scheduled-badge"><i class="fa-regular fa-clock" style="font-size:9px;"></i>Scheduled</span>');
+        if (isRecurring) badges.push('<span class="recurring-badge"><i class="fa-solid fa-repeat" style="font-size:9px;"></i>Recurring</span>');
         html += `<div class="expense-item${scheduled ? ' scheduled' : ''}">
           <div class="cat-icon ${cat.class}" style="color:#0f0f0f;"><i class="fa-solid ${cat.icon}"></i></div>
           <div style="flex:1;min-width:0;">
             <div style="font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(entry.description)}</div>
             <div style="font-size:11px;color:var(--fg-muted);">${cat.label}${entry.note ? ' — ' + escapeHtml(entry.note) : ''}</div>
-            ${scheduled ? '<div style="margin-top:4px;"><span class="scheduled-badge"><i class="fa-regular fa-clock" style="font-size:9px;"></i>Scheduled</span></div>' : ''}
+            ${badges.length ? `<div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap;">${badges.join('')}</div>` : ''}
           </div>
           <div style="text-align:right;flex-shrink:0;display:flex;align-items:center;gap:6px;">
             <span style="font-size:14px;font-weight:700;font-family:'Space Grotesk',sans-serif;" class="${isIncome ? 'amount-income' : 'amount-expense'}">${isIncome ? '+' : '-'}$${entry.amount.toFixed(2)}</span>
@@ -1771,7 +1903,9 @@
     if (editId) {
       const idx = expenses.findIndex(ex => ex.id === parseInt(editId));
       if (idx !== -1) {
+        const wasGenerated = expenses[idx].recurringId && !expenses[idx].detached;
         expenses[idx] = { ...expenses[idx], description: desc, amount, category, date, note, type: currentType };
+        if (wasGenerated) expenses[idx].detached = true;
         showToast('Entry updated successfully', 'success');
       }
     } else {
@@ -1804,6 +1938,14 @@
 
   async function confirmDelete() {
     if (deleteTargetId !== null) {
+      const entry = expenses.find(e => e.id === deleteTargetId);
+      // If this is a generated occurrence from a recurring rule, record a tombstone
+      // so materializeRecurring() doesn't resurrect it on next load.
+      if (entry && entry.recurringId && !entry.detached) {
+        const ym = entry.date.substring(0, 7);
+        const key = `${entry.recurringId}:${ym}`;
+        if (!deletedOccurrences.includes(key)) deletedOccurrences.push(key);
+      }
       expenses = expenses.filter(e => e.id !== deleteTargetId);
       showToast('Entry deleted', 'danger');
       deleteTargetId = null;
@@ -2071,6 +2213,264 @@
   }
 
   // ═══════════════════════════════════════════
+  // RECURRING PAYMENTS
+  // ═══════════════════════════════════════════
+  // Clamp day-of-month to what actually exists in the given month
+  function safeDay(year, monthIdx, day) {
+    const lastDay = new Date(year, monthIdx + 1, 0).getDate();
+    return Math.min(day, lastDay);
+  }
+
+  // Return the YYYY-MM-DD for a rule's occurrence in a given year/month
+  function occurrenceDate(rule, year, monthIdx) {
+    const day = safeDay(year, monthIdx, rule.dayOfMonth);
+    return formatDateStr(year, monthIdx, day);
+  }
+
+  // Parse a "YYYY-MM" string into { year, monthIdx }
+  function parseYearMonth(ym) {
+    const [y, m] = ym.split('-').map(Number);
+    return { year: y, monthIdx: m - 1 };
+  }
+
+  // Does this year+monthIdx fall within the rule's active window?
+  function ruleCoversMonth(rule, year, monthIdx) {
+    const start = parseYearMonth(rule.startDate);
+    const startKey = start.year * 12 + start.monthIdx;
+    const thisKey = year * 12 + monthIdx;
+    if (thisKey < startKey) return false;
+    if (rule.endDate) {
+      const end = parseYearMonth(rule.endDate);
+      const endKey = end.year * 12 + end.monthIdx;
+      if (thisKey > endKey) return false;
+    }
+    return true;
+  }
+
+  // For each rule, generate scheduled entries for the next ~12 months that don't yet exist
+  // and aren't in the tombstone list. Returns count of entries generated.
+  function materializeRecurring() {
+    if (!recurringRules || recurringRules.length === 0) return 0;
+
+    // Build lookup: for each rule, which YYYY-MM already has an entry?
+    const existingByRuleMonth = new Set();
+    expenses.forEach(e => {
+      if (e.recurringId) {
+        const ym = e.date.substring(0, 7);
+        existingByRuleMonth.add(`${e.recurringId}:${ym}`);
+      }
+    });
+    const tombSet = new Set(deletedOccurrences || []);
+
+    const now = new Date();
+    const horizonMonths = 12; // generate this far ahead
+    let generated = 0;
+
+    recurringRules.forEach(rule => {
+      for (let i = 0; i < horizonMonths; i++) {
+        const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+        const y = d.getFullYear();
+        const m = d.getMonth();
+        if (!ruleCoversMonth(rule, y, m)) continue;
+        const ym = `${y}-${String(m + 1).padStart(2, '0')}`;
+        const key = `${rule.id}:${ym}`;
+        if (existingByRuleMonth.has(key)) continue; // already exists (possibly edited)
+        if (tombSet.has(key)) continue; // user deleted this specific occurrence
+        const date = occurrenceDate(rule, y, m);
+        expenses.push({
+          id: generateId(),
+          description: rule.description,
+          amount: parseFloat(rule.amount) || 0,
+          category: rule.category || 'other',
+          date: date,
+          note: rule.note || '',
+          type: 'expense',
+          recurringId: rule.id
+        });
+        generated++;
+      }
+    });
+
+    return generated;
+  }
+
+  function openRecurringModal() {
+    renderRecurringList();
+    openModal('recurringModal');
+  }
+
+  function renderRecurringList() {
+    const list = document.getElementById('recurringList');
+    if (!recurringRules || recurringRules.length === 0) {
+      list.innerHTML = `<div style="text-align:center;padding:24px 0;color:var(--fg-muted);font-size:13px;">
+        <i class="fa-solid fa-repeat" style="font-size:28px;margin-bottom:12px;display:block;opacity:0.3;"></i>
+        No recurring payments yet. Add one to automate your rent, bills, or subscriptions.
+      </div>`;
+      return;
+    }
+    list.innerHTML = recurringRules.map(rule => {
+      const cat = EXPENSE_CATEGORIES[rule.category] || EXPENSE_CATEGORIES.other;
+      const endLabel = rule.endDate ? `until ${rule.endDate}` : 'forever';
+      return `<div class="recurring-rule-card">
+        <div class="cat-icon ${cat.class}" style="width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#0f0f0f;flex-shrink:0;">
+          <i class="fa-solid ${cat.icon}"></i>
+        </div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:14px;font-weight:700;font-family:'Space Grotesk',sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(rule.description)}</div>
+          <div style="font-size:11px;color:var(--fg-muted);">Day ${rule.dayOfMonth} · ${cat.label} · ${endLabel}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+          <span style="font-size:14px;font-weight:700;color:var(--danger);font-family:'Space Grotesk',sans-serif;">-$${parseFloat(rule.amount).toFixed(2)}</span>
+          <button class="btn-icon" onclick="openRuleEditor('${rule.id}')" aria-label="Edit rule"><i class="fa-solid fa-pen" style="font-size:11px;"></i></button>
+          <button class="btn-icon danger" onclick="promptRuleDelete('${rule.id}')" aria-label="Delete rule"><i class="fa-solid fa-trash-can" style="font-size:11px;"></i></button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function openRuleEditor(ruleId) {
+    const isEdit = !!ruleId;
+    const rule = isEdit ? recurringRules.find(r => r.id === ruleId) : null;
+    document.getElementById('ruleEditorTitle').textContent = isEdit ? 'Edit Recurring Payment' : 'New Recurring Payment';
+    document.getElementById('ruleSubmitBtn').textContent = isEdit ? 'Save Changes' : 'Create Rule';
+    document.getElementById('ruleEditId').value = ruleId || '';
+
+    // Populate category select
+    const catSelect = document.getElementById('ruleCategory');
+    catSelect.innerHTML = Object.entries(EXPENSE_CATEGORIES).map(([k, c]) => `<option value="${k}">${c.label}</option>`).join('');
+
+    if (isEdit && rule) {
+      document.getElementById('ruleDesc').value = rule.description;
+      document.getElementById('ruleAmount').value = rule.amount;
+      document.getElementById('ruleCategory').value = rule.category || 'bills';
+      document.getElementById('ruleDayOfMonth').value = rule.dayOfMonth;
+      document.getElementById('ruleStart').value = rule.startDate;
+      document.getElementById('ruleEnd').value = rule.endDate || '';
+      document.getElementById('ruleNote').value = rule.note || '';
+    } else {
+      document.getElementById('ruleForm').reset();
+      document.getElementById('ruleCategory').value = 'bills';
+      // Default start = current month
+      const now = new Date();
+      document.getElementById('ruleStart').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    }
+    openModal('ruleEditorModal');
+    setTimeout(() => document.getElementById('ruleDesc').focus(), 200);
+  }
+
+  async function handleRuleSubmit(e) {
+    e.preventDefault();
+    const editId = document.getElementById('ruleEditId').value;
+    const description = document.getElementById('ruleDesc').value.trim();
+    const amount = parseFloat(document.getElementById('ruleAmount').value);
+    const category = document.getElementById('ruleCategory').value;
+    const dayOfMonth = parseInt(document.getElementById('ruleDayOfMonth').value);
+    const startDate = document.getElementById('ruleStart').value;
+    const endDate = document.getElementById('ruleEnd').value || null;
+    const note = document.getElementById('ruleNote').value.trim();
+
+    if (!description || isNaN(amount) || amount <= 0 || !dayOfMonth || dayOfMonth < 1 || dayOfMonth > 31 || !startDate) {
+      showToast('Please fill in all required fields', 'warning');
+      return;
+    }
+    if (endDate && endDate < startDate) {
+      showToast('End date must be after start date', 'warning');
+      return;
+    }
+
+    const btn = document.getElementById('ruleSubmitBtn');
+    btn.disabled = true;
+    const origText = btn.textContent;
+    btn.textContent = 'Saving...';
+
+    if (editId) {
+      const idx = recurringRules.findIndex(r => r.id === editId);
+      if (idx !== -1) {
+        const old = recurringRules[idx];
+        recurringRules[idx] = { ...old, description, amount, category, dayOfMonth, startDate, endDate, note };
+        // When a rule is edited, refresh existing non-detached generated entries to match the new fields.
+        // Detached entries (user-edited occurrences) are left alone.
+        const today = todayStr();
+        expenses.forEach(e => {
+          if (e.recurringId === editId && !e.detached && e.date >= today) {
+            const ym = parseYearMonth(e.date.substring(0, 7));
+            // Only keep this entry if the edited rule still covers its month
+            if (ruleCoversMonth(recurringRules[idx], ym.year, ym.monthIdx)) {
+              e.description = description;
+              e.amount = amount;
+              e.category = category;
+              e.note = note;
+              // Adjust the date if dayOfMonth changed
+              e.date = occurrenceDate(recurringRules[idx], ym.year, ym.monthIdx);
+            } else {
+              e._toRemove = true; // out of new window
+            }
+          }
+        });
+        expenses = expenses.filter(e => !e._toRemove);
+        showToast('Rule updated', 'success');
+      }
+    } else {
+      const newRule = {
+        id: generateId().toString(),
+        description, amount, category, dayOfMonth, startDate, endDate, note,
+        createdAt: Date.now()
+      };
+      recurringRules.push(newRule);
+      showToast('Recurring rule created', 'success');
+    }
+
+    // Re-materialize (fills in new occurrences)
+    materializeRecurring();
+
+    await pushExpenses();
+    btn.disabled = false;
+    btn.textContent = origText;
+    closeModal('ruleEditorModal');
+    renderRecurringList();
+    renderAll();
+  }
+
+  function promptRuleDelete(ruleId) {
+    ruleDeleteTargetId = ruleId;
+    const rule = recurringRules.find(r => r.id === ruleId);
+    const today = todayStr();
+    const futureCount = expenses.filter(e => e.recurringId === ruleId && e.date >= today).length;
+    const prompt = document.getElementById('ruleDeletePrompt');
+    prompt.innerHTML = `Delete <strong>${escapeHtml(rule?.description || 'this rule')}</strong>? There ${futureCount === 1 ? 'is' : 'are'} <strong>${futureCount}</strong> upcoming scheduled ${futureCount === 1 ? 'entry' : 'entries'} from this rule.`;
+    openModal('ruleDeleteModal');
+  }
+
+  async function confirmRuleDelete(cascadeFutures) {
+    if (!ruleDeleteTargetId) return;
+    const ruleId = ruleDeleteTargetId;
+    ruleDeleteTargetId = null;
+
+    if (cascadeFutures) {
+      const today = todayStr();
+      expenses = expenses.filter(e => !(e.recurringId === ruleId && e.date >= today && !e.detached));
+    } else {
+      // Keep entries but detach them from the rule so they're treated as one-offs
+      expenses.forEach(e => {
+        if (e.recurringId === ruleId) {
+          delete e.recurringId;
+          e.detached = true;
+        }
+      });
+    }
+
+    recurringRules = recurringRules.filter(r => r.id !== ruleId);
+    // Clean up tombstones that referenced this rule
+    deletedOccurrences = (deletedOccurrences || []).filter(k => !k.startsWith(ruleId + ':'));
+
+    closeModal('ruleDeleteModal');
+    await pushExpenses();
+    renderRecurringList();
+    renderAll();
+    showToast('Rule deleted', 'info');
+  }
+
+  // ═══════════════════════════════════════════
   // KEYBOARD & EVENTS
   // ═══════════════════════════════════════════
   document.addEventListener('keydown', (e) => {
@@ -2079,6 +2479,9 @@
       closeModal('deleteModal');
       closeModal('goalModal');
       closeModal('resetModal');
+      closeModal('recurringModal');
+      closeModal('ruleEditorModal');
+      closeModal('ruleDeleteModal');
     }
   });
 
